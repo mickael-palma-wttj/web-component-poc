@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Profile - Asset Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <header class="bg-white rounded-lg shadow-md p-6 mb-8 flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-gray-800">🏢 Company Profile - Asset Editor</h1>
+            <button
+                class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                id="save-all">
+                Save All Changes
+            </button>
+        </header>
+
+        <div id="notification-area"></div>
+
+        <div id="assets-container">
+            <div class="bg-white rounded-lg shadow-md p-8 text-center text-gray-600 animate-pulse">
+                Loading assets...
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>
