@@ -375,78 +375,59 @@ class AssetComponent extends HTMLElement {
 
   /**
    * Download the rendered content as an image
-   * Captures the view-content area and saves it as PNG
+   * Captures the visible component content and saves it as PNG
    */
   async downloadAsImage() {
     try {
-      // Load html2canvas library
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-      document.head.appendChild(script);
+      // Load html2canvas library (simpler and more reliable for Shadow DOM)
+      if (!window.html2canvas) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
-      script.onload = () => {
-        // Get the view content element
-        const viewContent = this.shadowRoot.querySelector('.view-content');
-        if (!viewContent) {
-          alert('No content to capture');
-          return;
-        }
+        await new Promise((resolve, reject) => {
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load html2canvas'));
+          document.head.appendChild(script);
+        });
+      }
 
-        // For office locations or components with maps, add delay to ensure maps render
-        const hasMap = viewContent.textContent.includes('map') || this.shadowRoot.querySelector('.location-map');
-        const delay = hasMap ? 1500 : 500;
+      // For office locations or components with maps, add delay to ensure maps render
+      const hasMap = this.shadowRoot.textContent.includes('map') || this.shadowRoot.querySelector('.location-map');
+      const delay = hasMap ? 2000 : 500;
 
-        setTimeout(() => {
-          // Clone the element to avoid modifying the original
-          const clone = viewContent.cloneNode(true);
-
-          // Create a temporary container to capture
-          const tempContainer = document.createElement('div');
-          tempContainer.style.position = 'fixed';
-          tempContainer.style.left = '-9999px';
-          tempContainer.style.top = '-9999px';
-          tempContainer.style.width = '1200px';
-          tempContainer.style.backgroundColor = 'white';
-          tempContainer.appendChild(clone);
-          document.body.appendChild(tempContainer);
-
-          html2canvas(tempContainer, {
+      setTimeout(async () => {
+        try {
+          // Get a screenshot of the visible component element itself
+          // html2canvas can render web components with Shadow DOM
+          const canvas = await window.html2canvas(this, {
             backgroundColor: '#ffffff',
             scale: 2,
-            logging: false,
             useCORS: true,
             allowTaint: true,
-            imageTimeout: 5000,
-            timeout: 10000
-          }).then(canvas => {
-            // Download the image
-            const link = document.createElement('a');
-            link.href = canvas.toDataURL('image/png');
-            link.download = `${this.title || 'asset'}-${Date.now()}.png`;
-            link.click();
-
-            // Cleanup
-            document.body.removeChild(tempContainer);
-            document.head.removeChild(script);
-          }).catch(error => {
-            console.error('Failed to capture image:', error);
-            alert('Failed to download image. Try again in a moment.');
-            if (tempContainer.parentNode) {
-              document.body.removeChild(tempContainer);
-            }
-            if (script.parentNode) {
-              document.head.removeChild(script);
-            }
+            logging: false,
+            timeout: 10000,
+            imageTimeout: 5000
           });
-        }, delay);
-      };
 
-      script.onerror = () => {
-        alert('Failed to load html2canvas library');
-      };
+          // Convert canvas to PNG and download
+          canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${this.title || 'asset'}-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }, 'image/png');
+        } catch (error) {
+          console.error('Failed to capture image:', error);
+          alert('Failed to download image. Try again in a moment.');
+        }
+      }, delay);
     } catch (error) {
       console.error('Download failed:', error);
-      alert('Failed to download image');
+      alert(`Failed to load imaging library: ${error.message}`);
     }
   }
 
