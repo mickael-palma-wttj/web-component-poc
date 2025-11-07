@@ -10,14 +10,31 @@
 </head>
 
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Progress bar indicator -->
+    <div class="progress-bar" id="progress-bar"></div>
+
     <div class="max-w-7xl mx-auto px-4 py-8">
-        <header class="bg-white rounded-lg shadow-md p-6 mb-8 flex justify-between items-center">
-            <h1 class="text-3xl font-bold text-gray-800">🏢 Company Profile - Asset Editor</h1>
-            <button
-                class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-                id="save-all">
-                Save All Changes
-            </button>
+        <header class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold text-gray-800">🏢 Company Profile - Asset Editor</h1>
+                <div class="flex gap-4 items-center">
+                    <button class="toggle-collapse" id="toggle-all-btn" title="Collapse/Expand all sections">
+                        📦 Collapse All
+                    </button>
+                    <button
+                        class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                        id="save-all">
+                        Save All Changes
+                    </button>
+                </div>
+            </div>
+            <!-- Search/Filter input in header -->
+            <input type="text" id="search-input" class="search-input"
+                placeholder="🔍 Search assets by title, content, keywords..." autocomplete="off">
+            <!-- Navigation sidebar as horizontal list -->
+            <nav class="nav-sidebar" id="nav-sidebar">
+                <ul id="nav-list"></ul>
+            </nav>
         </header>
 
         <div id="notification-area"></div>

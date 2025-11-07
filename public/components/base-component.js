@@ -12,6 +12,10 @@
 import { StyleConstants } from './style-constants.js';
 import { TemplateBuilder } from './template-builder.js';
 import { FormHelper } from './form-helper.js';
+import { injectSpinnerStyles } from '../utils/spinner-styles.js';
+
+// Ensure spinner styles are injected on module load
+injectSpinnerStyles();
 
 class AssetComponent extends HTMLElement {
   // ==========================================
@@ -166,17 +170,250 @@ class AssetComponent extends HTMLElement {
         ${formStyles}
       `;
 
+    // When editing, render without the edit drawer (it will be in light DOM)
+    const mainContent = this.isEditing
+      ? TemplateBuilder.getEditModeTemplate(content, preview, true)
+      : TemplateBuilder.getEditModeTemplate(content, preview, false);
+
     this.shadowRoot.innerHTML = `
       <style>
         ${combinedStyles}
       </style>
       <div class="component-wrapper ${this.isEditing ? 'editing' : ''}">
         ${TemplateBuilder.getHeaderTemplate(this.title, this.isEditing)}
-        ${this.isEditing ? TemplateBuilder.getEditModeTemplate(content, preview) : TemplateBuilder.getViewModeTemplate(content)}
+        ${this.isEditing ? mainContent : TemplateBuilder.getViewModeTemplate(content)}
       </div>
     `;
 
     this.attachEventListeners();
+
+    // If editing, create the drawer in light DOM (assets-container)
+    if (this.isEditing) {
+      this._createLightDOMDrawer(content, preview);
+    } else {
+      this._removeLightDOMDrawer();
+    }
+
+    // Re-inject collapse button after render (it gets lost when re-rendering)
+    this._reinjectCollapseButton();
+  }
+
+  /**
+   * Re-inject the collapse/expand button into the shadow DOM button-group
+   * Called after each render to ensure the button persists across re-renders
+   * Ensures event listener is reset when edit mode is activated
+   * @private
+   */
+  _reinjectCollapseButton() {
+    const buttonGroup = this.shadowRoot.querySelector('.button-group');
+    if (!buttonGroup) return;
+
+    this._removeExistingCollapseButton(buttonGroup);
+    const toggleBtn = this._createCollapseButton();
+    this._attachCollapseListener(toggleBtn);
+    buttonGroup.insertBefore(toggleBtn, buttonGroup.firstChild);
+
+    this._log('Collapse button re-injected, isEditing:', this.isEditing);
+  }
+
+  /**
+   * Remove existing collapse button and its listeners
+   * @private
+   */
+  _removeExistingCollapseButton(buttonGroup) {
+    const existing = buttonGroup.querySelector('.btn-collapse');
+    if (existing) {
+      // Clone and replace to remove all event listeners
+      const clone = existing.cloneNode(false);
+      existing.replaceWith(clone);
+    }
+  }
+
+  /**
+   * Create collapse button element
+   * @private
+   */
+  _createCollapseButton() {
+    const btn = document.createElement('button');
+    btn.className = 'btn-collapse';
+    btn.setAttribute('type', 'button');
+    // Text will be set in _attachCollapseListener based on actual current state
+    return btn;
+  }
+
+  /**
+   * Attach click listener to collapse button
+   * @private
+   */
+  _attachCollapseListener(btn) {
+    const handleClick = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const wrapper = this.parentElement;
+      if (!wrapper?.classList.contains('asset-wrapper')) {
+        this._log('No asset-wrapper parent found');
+        return;
+      }
+
+      // Toggle both the wrapper AND the component itself
+      const isCollapsed = wrapper.classList.toggle('collapsed');
+      this.classList.toggle('collapsed', isCollapsed);
+      btn.textContent = isCollapsed ? '⬆️ Expand' : '⬇️ Collapse';
+    };
+
+    // Set initial button text based on current wrapper state
+    const wrapper = this.parentElement;
+    const isCurrentlyCollapsed = wrapper?.classList.contains('collapsed');
+    btn.textContent = isCurrentlyCollapsed ? '⬆️ Expand' : '⬇️ Collapse';
+
+    this._collapseClickHandler = handleClick;
+    btn.addEventListener('click', handleClick);
+  }
+
+  /**
+   * Create edit drawer in light DOM (assets-container) instead of shadow DOM
+   * @private
+   */
+  _createLightDOMDrawer(content, preview) {
+    this._removeLightDOMDrawer();
+
+    const container = document.getElementById('assets-container');
+    if (!container) return;
+
+    const formStyles = this.getStyles();
+    const drawer = this._buildDrawerElement(content, formStyles);
+
+    container.appendChild(drawer);
+    this._attachLightDOMDrawerListeners(drawer);
+    this._setupDrawerResize(drawer);
+  }
+
+  /**
+   * Build drawer HTML element
+   * @private
+   */
+  _buildDrawerElement(content, formStyles) {
+    const drawer = document.createElement('div');
+    drawer.className = 'edit-drawer-light-dom';
+    drawer.setAttribute('data-component-id', this.getAttribute('data-asset-name') || 'unknown');
+    drawer.innerHTML = `
+      <style>${formStyles}</style>
+      <div class="drawer-resize-handle"></div>
+      <div class="edit-drawer-header">
+        <h3>Edit</h3>
+        <div class="button-group">
+          <button class="btn-save" data-action="save">Save</button>
+          <button class="btn-cancel" data-action="cancel">Cancel</button>
+        </div>
+      </div>
+      <div class="edit-scroll-container">
+        ${content}
+      </div>
+    `;
+    return drawer;
+  }
+
+  /**
+   * Remove light DOM drawer
+   * @private
+   */
+  _removeLightDOMDrawer() {
+    const drawer = document.querySelector('.edit-drawer-light-dom');
+    if (drawer) drawer.remove();
+  }
+
+  /**
+   * Set up resize handler for drawer width
+   * Allows dragging the left border to resize the drawer
+   * @private
+   */
+  _setupDrawerResize(drawer) {
+    const resizeHandle = drawer.querySelector('.drawer-resize-handle');
+    if (!resizeHandle) return;
+
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    const handleMouseDown = (e) => {
+      isResizing = true;
+      startX = e.clientX;
+      startWidth = parseInt(window.getComputedStyle(drawer).width, 10);
+      this._applyResizingState(true);
+    };
+
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      const newWidth = startWidth + (startX - e.clientX);
+      this._resizeDrawerIfValid(drawer, newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing) {
+        isResizing = false;
+        this._applyResizingState(false);
+      }
+    };
+
+    resizeHandle.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }
+
+  /**
+   * Apply or remove resizing state to document
+   * @private
+   */
+  _applyResizingState(isResizing) {
+    document.body.style.cursor = isResizing ? 'col-resize' : 'default';
+    document.body.style.userSelect = isResizing ? 'none' : 'auto';
+  }
+
+  /**
+   * Resize drawer if within valid constraints
+   * @private
+   */
+  _resizeDrawerIfValid(drawer, newWidth) {
+    const MIN_WIDTH = 300;
+    const MAX_WIDTH = window.innerWidth * 0.8;
+
+    if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
+      drawer.style.width = newWidth + 'px';
+    }
+  }
+
+  /**
+   * Attach listeners to light DOM drawer buttons
+   * @private
+   */
+  _attachLightDOMDrawerListeners(drawer) {
+    const saveBtn = drawer.querySelector('[data-action="save"]');
+    const cancelBtn = drawer.querySelector('[data-action="cancel"]');
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => this.saveChanges());
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => this.cancelEdit());
+    }
+
+    // Attach listeners to all data-action buttons (including custom ones like btn-add-item)
+    drawer.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const action = e.target.dataset.action;
+        const index = e.target.dataset.index;
+        this.handleAction(action, index);
+      });
+    });
+
+    // Attach form listeners for live preview
+    const form = drawer.querySelector('.edit-form');
+    if (form) {
+      form.addEventListener('input', () => this.updateLivePreview());
+      form.addEventListener('change', () => this.updateLivePreview());
+    }
   }
 
   // ==========================================
@@ -202,13 +439,11 @@ class AssetComponent extends HTMLElement {
    * @private
    */
   _attachActionButtons() {
-    this.shadowRoot.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const action = e.target.dataset.action;
-        const index = e.target.dataset.index;
-        this.handleAction(action, index);
-      });
+    this._attachDOMListeners(this.shadowRoot, '[data-action]', (e) => {
+      e.preventDefault();
+      const action = e.target.dataset.action;
+      const index = e.target.dataset.index;
+      this.handleAction(action, index);
     });
   }
 
@@ -217,12 +452,11 @@ class AssetComponent extends HTMLElement {
    * @private
    */
   _attachFormListeners() {
-    const form = this.shadowRoot.querySelector('.edit-form');
-    if (!form) return;
-
-    // Listen to all form input and change events
-    form.addEventListener('input', () => this.updateLivePreview());
-    form.addEventListener('change', () => this.updateLivePreview());
+    const form = this._findForm();
+    if (form) {
+      form.addEventListener('input', () => this.updateLivePreview());
+      form.addEventListener('change', () => this.updateLivePreview());
+    }
   }
 
   /**
@@ -249,6 +483,30 @@ class AssetComponent extends HTMLElement {
         }
       });
     }
+  }
+
+  /**
+   * Helper to attach listeners to multiple DOM elements
+   * @private
+   */
+  _attachDOMListeners(container, selector, handler) {
+    container.querySelectorAll(selector).forEach(el => {
+      el.addEventListener('click', handler);
+    });
+  }
+
+  /**
+   * Find form in shadow DOM or light DOM drawer
+   * @private
+   * @returns {HTMLFormElement|null}
+   */
+  _findForm() {
+    let form = this.shadowRoot.querySelector('.edit-form');
+    if (!form) {
+      const drawer = document.querySelector('.edit-drawer-light-dom');
+      if (drawer) form = drawer.querySelector('.edit-form');
+    }
+    return form;
   }
 
   /**
@@ -287,10 +545,20 @@ class AssetComponent extends HTMLElement {
   /**
    * Enter edit mode
    * Saves a copy of current data for potential rollback
+   * Resets collapse button listener when activating edit mode
    */
   startEdit() {
     this.originalData = FormHelper.deepClone(this.data);
     this.isEditing = true;
+
+    // Clean up old collapse button listener before re-rendering
+    if (this._collapseClickHandler) {
+      const oldBtn = this.shadowRoot?.querySelector('.btn-collapse');
+      if (oldBtn) {
+        oldBtn.removeEventListener('click', this._collapseClickHandler);
+      }
+    }
+
     this.render();
   }
 
@@ -300,14 +568,14 @@ class AssetComponent extends HTMLElement {
    * Can be overridden by subclasses for custom preview logic
    */
   updateLivePreview() {
-    const form = this.shadowRoot.querySelector('.edit-form');
+    const form = this._findForm();
     if (!form) return;
 
     // Collect current form data
     const updatedData = FormHelper.collectFormData(form);
     this.data = { ...this.data, ...updatedData };
 
-    // Re-render preview
+    // Re-render preview in shadow DOM
     const previewPanel = this.shadowRoot.querySelector('.preview-content');
     if (previewPanel) {
       previewPanel.innerHTML = this.renderPreview();
@@ -355,8 +623,7 @@ class AssetComponent extends HTMLElement {
    * Collects form data, dispatches update event, and re-renders in view mode
    */
   saveChanges() {
-    // Collect data from form fields
-    const form = this.shadowRoot.querySelector('.edit-form');
+    const form = this._findForm();
     if (form) {
       const updatedData = FormHelper.collectFormData(form);
       this.data = { ...this.data, ...updatedData };
@@ -375,60 +642,93 @@ class AssetComponent extends HTMLElement {
 
   /**
    * Download the rendered content as an image
-   * Captures the visible component content and saves it as PNG
+   * Captures the visible component content and saves it as PNG using SnapDOM
+   * SnapDOM is a lightweight DOM-to-image library with excellent Shadow DOM support
    */
   async downloadAsImage() {
+    let spinner = null;
     try {
-      // Load html2canvas library (simpler and more reliable for Shadow DOM)
-      if (!window.html2canvas) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      spinner = this._createSpinner();
+      await this._loadSnapDOM();
+      await this._captureAndDownloadImage();
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert(`Failed to load SnapDOM library: ${error.message}`);
+    } finally {
+      this._removeSpinner(spinner);
+    }
+  }
 
-        await new Promise((resolve, reject) => {
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error('Failed to load html2canvas'));
-          document.head.appendChild(script);
-        });
-      }
+  /**
+   * Create and display spinner overlay
+   * @private
+   */
+  _createSpinner() {
+    const spinner = document.createElement('div');
+    spinner.className = 'snapdom-spinner-overlay';
+    spinner.innerHTML = `
+      <div class="snapdom-spinner-content">
+        <div class="snapdom-spinner"></div>
+        <p>Generating image...</p>
+      </div>
+    `;
+    document.body.appendChild(spinner);
+    return spinner;
+  }
 
-      // For office locations or components with maps, add delay to ensure maps render
-      const hasMap = this.shadowRoot.textContent.includes('map') || this.shadowRoot.querySelector('.location-map');
-      const delay = hasMap ? 2000 : 500;
+  /**
+ * Remove spinner overlay
+ * @private
+ */
+  _removeSpinner(spinner) {
+    if (spinner?.parentNode) {
+      spinner.parentNode.removeChild(spinner);
+    }
+  }
 
+  /**
+   * Load SnapDOM library if not already loaded
+   * @private
+   */
+  async _loadSnapDOM() {
+    if (window.snapdom) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@zumer/snapdom/dist/snapdom.min.js';
+    script.crossOrigin = 'anonymous';
+
+    return new Promise((resolve, reject) => {
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load SnapDOM'));
+      document.head.appendChild(script);
+    });
+  }
+
+  /**
+   * Capture and download image with appropriate delay for maps
+   * @private
+   */
+  async _captureAndDownloadImage() {
+    const hasMap = this.shadowRoot.textContent.includes('map') || this.shadowRoot.querySelector('.location-map');
+    const delay = hasMap ? 2000 : 500;
+
+    return new Promise((resolve) => {
       setTimeout(async () => {
         try {
-          // Get a screenshot of the visible component element itself
-          // html2canvas can render web components with Shadow DOM
-          const canvas = await window.html2canvas(this, {
-            backgroundColor: '#ffffff',
+          await window.snapdom.download(this, {
             scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            timeout: 10000,
-            imageTimeout: 5000
+            backgroundColor: '#ffffff',
+            quality: 0.95,
+            filename: `${this.title || 'asset'}-${Date.now()}`
           });
-
-          // Convert canvas to PNG and download
-          canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${this.title || 'asset'}-${Date.now()}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-          }, 'image/png');
+          resolve();
         } catch (error) {
           console.error('Failed to capture image:', error);
           alert('Failed to download image. Try again in a moment.');
+          resolve();
         }
       }, delay);
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert(`Failed to load imaging library: ${error.message}`);
-    }
+    });
   }
 
   /**
@@ -436,7 +736,11 @@ class AssetComponent extends HTMLElement {
    * Maps input values to nested data object using data-path attribute
    * Delegates to FormHelper for implementation
    * @param {HTMLFormElement} form - The form element to collect data from
-   */
+  * Collect form data from all input fields
+    * Maps input values to nested data object using data-path attribute
+      * Delegates to FormHelper for implementation
+        * @param { HTMLFormElement } form - The form element to collect data from
+          */
   collectFormData(form) {
     return FormHelper.collectFormData(form);
   }

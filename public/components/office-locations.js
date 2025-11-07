@@ -14,49 +14,120 @@ class OfficeLocationsComponent extends AssetComponent {
     if (this.shadowRoot) this.render();
   }
 
+  render() {
+    super.render();
+    this._attachDrawerListeners();
+  }
+
+  _attachDrawerListeners() {
+    const attachListeners = () => {
+      this._attachDrawerMapButtons();
+      this._attachDrawerSearchButtons();
+      this._attachDrawerSearchInputs();
+    };
+
+    // Try attaching immediately
+    attachListeners();
+
+    // Watch for changes in drawer
+    const drawer = document.querySelector('.edit-drawer-light-dom');
+    if (drawer && !drawer._hasObserver) {
+      drawer._hasObserver = true;
+      const observer = new MutationObserver(() => attachListeners());
+      observer.observe(drawer, { childList: true, subtree: true });
+    }
+  }
+
+  _attachDrawerMapButtons() {
+    const buttons = document.querySelectorAll('.btn-search-map[data-location-type]:not([data-listener-attached])');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', (e) => this._handleMapButtonClick(e));
+      btn.setAttribute('data-listener-attached', 'true');
+    });
+  }
+
+  _attachDrawerSearchButtons() {
+    const buttons = document.querySelectorAll('.btn-map-search[data-search-for]:not([data-search-listener-attached])');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', (e) => this._handleSearchButtonClick(e));
+      btn.setAttribute('data-search-listener-attached', 'true');
+    });
+  }
+
+  _attachDrawerSearchInputs() {
+    const inputs = document.querySelectorAll('.map-search-input:not([data-search-input-listener-attached])');
+    inputs.forEach(input => {
+      input.addEventListener('keypress', (e) => this._handleSearchInputKeypress(e, input));
+      input.setAttribute('data-search-input-listener-attached', 'true');
+    });
+  }
+
+  _handleMapButtonClick(e) {
+    e.preventDefault();
+    const { locationType, officeIndex } = e.target.dataset;
+    const mapId = locationType === 'hq' ? 'map-hq' : `map-office-${officeIndex}`;
+    this.initMap(mapId, locationType, officeIndex ? parseInt(officeIndex) : null);
+  }
+
+  _handleSearchButtonClick(e) {
+    e.preventDefault();
+    const searchFor = e.target.dataset.searchFor;
+    const searchInput = this._findElement(`map-search-${searchFor}`);
+    const searchQuery = searchInput?.value;
+
+    if (searchQuery && this.maps?.[searchFor]) {
+      const { map, marker } = this.maps[searchFor];
+      this.searchAddress(searchQuery, map, marker, e.target);
+    }
+  }
+
+  _handleSearchInputKeypress(e, input) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const searchFor = input.id.replace('map-search-', '');
+    if (this.maps?.[searchFor]) {
+      const { map, marker } = this.maps[searchFor];
+      const searchButton = this._findElement(`[data-search-for="${searchFor}"]`, true);
+      this.searchAddress(input.value, map, marker, searchButton);
+    }
+  }
+
+  _findElement(query, isSelector = false) {
+    const finder = isSelector
+      ? (loc) => loc.querySelector(query)
+      : (loc) => loc.getElementById(query);
+
+    return finder(document) || (this.shadowRoot && finder(this.shadowRoot));
+  }
+
   renderView() {
+    return this._renderLocationTemplate('view');
+  }
+
+  renderPreview() {
+    return this._renderLocationTemplate('preview');
+  }
+
+  _renderLocationTemplate(mode) {
     const d = this.data;
     const hq = d.headquarters || {};
+    const leafletScript = mode === 'preview'
+      ? `<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>`
+      : '';
+    const mapPrefix = mode === 'preview' ? 'map-preview-' : 'map-view-';
 
     return `
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      ${d.headquarters ? `
-        <div class="section">
-          <h3>🏢 Headquarters</h3>
-          <div class="location-display">
-            ${hq.latitude && hq.longitude ? `<div id="map-view-hq" class="location-map"></div>` : ''}
-            <div class="location-info">
-              <strong>${hq.city}, ${hq.country}</strong>
-              ${hq.address ? `<p>📍 ${hq.address}</p>` : ''}
-              ${hq.latitude || hq.longitude ? `<p>🗺️ ${hq.latitude}, ${hq.longitude}</p>` : ''}
-              ${hq.size ? `<p>📏 ${hq.size}</p>` : ''}
-              <p class="text-content">${hq.description || ''}</p>
-            </div>
-          </div>
-        </div>
-      ` : ''}
-
-      ${d.offices && d.offices.length > 0 ? `
+      ${leafletScript}
+      ${this._renderLocation(hq, 'hq', mapPrefix)}
+      ${d.offices?.length ? `
         <div class="section">
           <h3>🌍 Other Offices</h3>
           <div class="array-list">
-            ${d.offices.map((office, index) => `
-              <div class="location-display">
-                ${office.latitude && office.longitude ? `<div id="map-view-office-${index}" class="location-map"></div>` : ''}
-                <div class="location-info">
-                  <strong>${office.city}, ${office.country}</strong>
-                  <span style="display: inline-block; background: #007bff; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem;">${office.type || 'Office'}</span>
-                  ${office.address ? `<p>📍 ${office.address}</p>` : ''}
-                  ${office.latitude || office.longitude ? `<p>🗺️ ${office.latitude}, ${office.longitude}</p>` : ''}
-                  ${office.size ? `<p>📏 ${office.size}</p>` : ''}
-                  <p class="text-content">${office.description || ''}</p>
-                </div>
-              </div>
-            `).join('')}
+            ${d.offices.map((office, index) => this._renderLocation(office, `office-${index}`, mapPrefix, true)).join('')}
           </div>
         </div>
       ` : ''}
-
       ${d.remotePresence ? `
         <div class="section">
           <h3>💻 Remote Work</h3>
@@ -66,56 +137,29 @@ class OfficeLocationsComponent extends AssetComponent {
     `;
   }
 
-  renderPreview() {
-    const d = this.data;
-    const hq = d.headquarters || {};
+  _renderLocation(location, id, mapPrefix, isOffice = false) {
+    if (!location || !Object.keys(location).length) return '';
+
+    const mapId = `${mapPrefix}${id}`;
+    const officeType = isOffice ? `
+      <span style="display: inline-block; background: #007bff; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem;">${location.type || 'Office'}</span>
+    ` : '';
 
     return `
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
-      ${d.headquarters ? `
-        <div class="section">
-          <h3>🏢 Headquarters</h3>
-          <div class="location-display">
-            ${hq.latitude && hq.longitude ? `<div id="map-preview-hq" class="location-map"></div>` : ''}
-            <div class="location-info">
-              <strong>${hq.city}, ${hq.country}</strong>
-              ${hq.address ? `<p>📍 ${hq.address}</p>` : ''}
-              ${hq.latitude || hq.longitude ? `<p>🗺️ ${hq.latitude}, ${hq.longitude}</p>` : ''}
-              ${hq.size ? `<p>📏 ${hq.size}</p>` : ''}
-              <p class="text-content">${hq.description || ''}</p>
-            </div>
+      <div class="section">
+        <h3>${isOffice ? '🌍' : '🏢'} ${isOffice ? 'Other Offices' : 'Headquarters'}</h3>
+        <div class="location-display">
+          ${location.latitude && location.longitude ? `<div id="${mapId}" class="location-map"></div>` : ''}
+          <div class="location-info">
+            <strong>${location.city}, ${location.country}</strong>
+            ${officeType}
+            ${location.address ? `<p>📍 ${location.address}</p>` : ''}
+            ${location.latitude || location.longitude ? `<p>🗺️ ${location.latitude}, ${location.longitude}</p>` : ''}
+            ${location.size ? `<p>📏 ${location.size}</p>` : ''}
+            <p class="text-content">${location.description || ''}</p>
           </div>
         </div>
-      ` : ''}
-
-      ${d.offices && d.offices.length > 0 ? `
-        <div class="section">
-          <h3>🌍 Other Offices</h3>
-          <div class="array-list">
-            ${d.offices.map((office, index) => `
-              <div class="location-display">
-                ${office.latitude && office.longitude ? `<div id="map-preview-office-${index}" class="location-map"></div>` : ''}
-                <div class="location-info">
-                  <strong>${office.city}, ${office.country}</strong>
-                  <span style="display: inline-block; background: #007bff; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem;">${office.type || 'Office'}</span>
-                  ${office.address ? `<p>📍 ${office.address}</p>` : ''}
-                  ${office.latitude || office.longitude ? `<p>🗺️ ${office.latitude}, ${office.longitude}</p>` : ''}
-                  ${office.size ? `<p>📏 ${office.size}</p>` : ''}
-                  <p class="text-content">${office.description || ''}</p>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
-
-      ${d.remotePresence ? `
-        <div class="section">
-          <h3>💻 Remote Work</h3>
-          <p class="text-content">${d.remotePresence}</p>
-        </div>
-      ` : ''}
+      </div>
     `;
   }
 
@@ -313,15 +357,32 @@ class OfficeLocationsComponent extends AssetComponent {
       shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
     });
 
-    // Show map container
+    // Show map container - always look in light DOM first (drawer), then shadowRoot
     const containerId = locationType === 'hq' ? 'map-container-hq' : `map-container-office-${officeIndex}`;
-    const mapContainerWrapper = this.shadowRoot.getElementById(containerId);
+    let mapContainerWrapper = document.getElementById(containerId);
+    console.log('[initMap] Looking for containerId:', containerId, 'Found in light DOM:', !!mapContainerWrapper);
+    if (!mapContainerWrapper && this.shadowRoot) {
+      mapContainerWrapper = this.shadowRoot.getElementById(containerId);
+      console.log('[initMap] Found in shadowRoot:', !!mapContainerWrapper);
+    }
     if (mapContainerWrapper) {
+      console.log('[initMap] Showing map container');
       mapContainerWrapper.style.display = 'block';
+    } else {
+      console.log('[initMap] Map container not found!');
     }
 
-    const mapContainer = this.shadowRoot.getElementById(mapId);
-    if (!mapContainer) return;
+    // Look for map container in light DOM first (drawer), then shadowRoot
+    let mapContainer = document.getElementById(mapId);
+    console.log('[initMap] Looking for mapId:', mapId, 'Found in light DOM:', !!mapContainer);
+    if (!mapContainer && this.shadowRoot) {
+      mapContainer = this.shadowRoot.getElementById(mapId);
+      console.log('[initMap] Found in shadowRoot:', !!mapContainer);
+    }
+    if (!mapContainer) {
+      console.log('[initMap] Map container element not found!');
+      return;
+    }
 
     mapContainer.style.height = '400px';
     mapContainer.style.borderRadius = '8px';
@@ -371,9 +432,14 @@ class OfficeLocationsComponent extends AssetComponent {
     this.maps[mapKey] = { map, marker };
 
     // Search address if provided
-    const address = locationType === 'hq'
-      ? this.shadowRoot.querySelector('[data-path="headquarters.address"]')?.value
-      : this.shadowRoot.querySelector(`[data-path="offices.${officeIndex}.address"]`)?.value;
+    let address;
+    if (locationType === 'hq') {
+      address = this.shadowRoot.querySelector('[data-path="headquarters.address"]')?.value ||
+        document.querySelector('[data-path="headquarters.address"]')?.value;
+    } else {
+      address = this.shadowRoot.querySelector(`[data-path="offices.${officeIndex}.address"]`)?.value ||
+        document.querySelector(`[data-path="offices.${officeIndex}.address"]`)?.value;
+    }
 
     if (address) {
       this.searchAddress(address, map, marker);
@@ -381,8 +447,14 @@ class OfficeLocationsComponent extends AssetComponent {
   }
 
   updateCoordinates(locationType, officeIndex, lat, lng) {
-    const latInput = this.shadowRoot.querySelector(`[data-lat="${locationType === 'hq' ? 'hq' : `office-${officeIndex}`}"]`);
-    const lngInput = this.shadowRoot.querySelector(`[data-lng="${locationType === 'hq' ? 'hq' : `office-${officeIndex}`}"]`);
+    const dataLat = locationType === 'hq' ? 'hq' : `office-${officeIndex}`;
+    // Look in light DOM first (drawer), then shadowRoot
+    let latInput = document.querySelector(`[data-lat="${dataLat}"]`);
+    let lngInput = document.querySelector(`[data-lng="${dataLat}"]`);
+
+    // Look in shadow DOM if not found in light DOM
+    if (!latInput && this.shadowRoot) latInput = this.shadowRoot.querySelector(`[data-lat="${dataLat}"]`);
+    if (!lngInput && this.shadowRoot) lngInput = this.shadowRoot.querySelector(`[data-lng="${dataLat}"]`);
 
     if (latInput) latInput.value = lat.toFixed(4);
     if (lngInput) lngInput.value = lng.toFixed(4);
@@ -439,7 +511,17 @@ class OfficeLocationsComponent extends AssetComponent {
   }
 
   updateLivePreview() {
-    const form = this.shadowRoot.querySelector('.edit-form');
+    // Try to find form in shadow DOM first (fallback)
+    let form = this.shadowRoot.querySelector('.edit-form');
+
+    // If not found and we're using light DOM drawer, look there
+    if (!form) {
+      const drawer = document.querySelector('.edit-drawer-light-dom');
+      if (drawer) {
+        form = drawer.querySelector('.edit-form');
+      }
+    }
+
     if (!form) return;
 
     // Collect current form data
@@ -453,115 +535,103 @@ class OfficeLocationsComponent extends AssetComponent {
   }
 
   doUpdateLivePreview() {
-    // For office locations, only update the info content, not the maps
     const previewPanel = this.shadowRoot.querySelector('.preview-panel');
-    if (previewPanel) {
-      // Update location info texts without reinitializing maps
-      const hq = this.data.headquarters || {};
+    if (!previewPanel) return;
 
-      // Update headquarters info if it exists
-      const hqInfoDiv = previewPanel.querySelector('.location-info');
-      if (hqInfoDiv && hq.city) {
-        hqInfoDiv.innerHTML = `
-          <strong>${hq.city}, ${hq.country}</strong>
-          ${hq.address ? `<p>📍 ${hq.address}</p>` : ''}
-          ${hq.latitude || hq.longitude ? `<p>🗺️ ${hq.latitude}, ${hq.longitude}</p>` : ''}
-          ${hq.size ? `<p>📏 ${hq.size}</p>` : ''}
-          <p class="text-content">${hq.description || ''}</p>
-        `;
+    const hq = this.data.headquarters || {};
+    const renderLocationInfo = (location) => {
+      if (!location || !Object.keys(location).length) return '';
+      return `
+        <strong>${location.city || ''}, ${location.country || ''}</strong>
+        ${location.type ? `<span style="display: inline-block; background: #007bff; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem;">${location.type}</span>` : ''}
+        ${location.address ? `<p>📍 ${location.address}</p>` : ''}
+        ${location.latitude || location.longitude ? `<p>🗺️ ${location.latitude || ''}, ${location.longitude || ''}</p>` : ''}
+        ${location.size ? `<p>📏 ${location.size}</p>` : ''}
+        <p class="text-content">${location.description || ''}</p>
+      `;
+    };
+
+    // Update HQ
+    if (Object.keys(hq).length > 0) {
+      const hqSection = this._findSectionByHeading(previewPanel, 'Headquarters');
+      if (hqSection) {
+        const infoDiv = hqSection.querySelector('.location-info');
+        if (infoDiv) infoDiv.innerHTML = renderLocationInfo(hq);
       }
-
-      // Update office info texts
-      const officeDisplays = previewPanel.querySelectorAll('.location-display');
-      officeDisplays.forEach((display, index) => {
-        if (this.data.offices && this.data.offices[index]) {
-          const office = this.data.offices[index];
-          const infoDiv = display.querySelector('.location-info');
-          if (infoDiv) {
-            infoDiv.innerHTML = `
-              <strong>${office.city}, ${office.country}</strong>
-              <span style="display: inline-block; background: #007bff; color: white; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.8rem; margin-left: 0.5rem;">${office.type || 'Office'}</span>
-              ${office.address ? `<p>📍 ${office.address}</p>` : ''}
-              ${office.latitude || office.longitude ? `<p>🗺️ ${office.latitude}, ${office.longitude}</p>` : ''}
-              ${office.size ? `<p>📏 ${office.size}</p>` : ''}
-              <p class="text-content">${office.description || ''}</p>
-            `;
-          }
-        }
-      });
     }
+
+    // Update offices
+    if (this.data.offices?.length) {
+      const officesSection = this._findSectionByHeading(previewPanel, 'Other Offices');
+      if (officesSection) {
+        const arrayList = officesSection.querySelector('.array-list');
+        if (arrayList) {
+          arrayList.querySelectorAll('.location-display').forEach((display, index) => {
+            if (this.data.offices[index]) {
+              const infoDiv = display.querySelector('.location-info');
+              if (infoDiv) infoDiv.innerHTML = renderLocationInfo(this.data.offices[index]);
+            }
+          });
+        }
+      }
+    }
+  }
+
+  _findSectionByHeading(container, text) {
+    for (let heading of container.querySelectorAll('h3')) {
+      if (heading.textContent.includes(text)) {
+        return heading.closest('.section');
+      }
+    }
+    return null;
   }
 
   attachEventListeners() {
     super.attachEventListeners();
 
-    // Initialize maps only if not already initialized
     setTimeout(() => {
-      // Only initialize the maps that are currently visible
       if (this.isEditing) {
-        // In edit mode: clear view maps and initialize preview maps
         this.clearViewMaps();
         this.initializePreviewMaps();
       } else {
-        // In view mode: clear preview maps and initialize view maps
         this.clearPreviewMaps();
         this.initializeViewMaps();
       }
     }, 100);
 
-    // Add map button listeners
-    const mapButtons = this.shadowRoot.querySelectorAll('.btn-search-map');
-    mapButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const locationType = e.target.dataset.locationType;
-        const officeIndex = e.target.dataset.officeIndex;
+    // Attach map button listeners from shadowRoot
+    this._attachShadowMapButtons();
+    this._attachShadowSearchListeners();
+  }
 
-        const mapId = locationType === 'hq' ? 'map-hq' : `map-office-${officeIndex}`;
-        this.initMap(mapId, locationType, officeIndex ? parseInt(officeIndex) : null);
-      });
+  _attachShadowMapButtons() {
+    const buttons = this.shadowRoot.querySelectorAll('.btn-search-map');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', (e) => this._handleMapButtonClick(e));
     });
+  }
 
-    // Add search button listeners
+  _attachShadowSearchListeners() {
+    // Search buttons
     const searchButtons = this.shadowRoot.querySelectorAll('.btn-map-search');
     searchButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const searchFor = e.target.dataset.searchFor;
-        const searchInput = this.shadowRoot.getElementById(`map-search-${searchFor}`);
-        const searchQuery = searchInput?.value;
-
-        if (searchQuery && this.maps && this.maps[searchFor]) {
-          const { map, marker } = this.maps[searchFor];
-          this.searchAddress(searchQuery, map, marker, btn);
-        }
-      });
+      btn.addEventListener('click', (e) => this._handleSearchButtonClick(e));
     });
 
-    // Add Enter key support for search inputs
+    // Search inputs
     const searchInputs = this.shadowRoot.querySelectorAll('.map-search-input');
     searchInputs.forEach(input => {
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const searchFor = input.id.replace('map-search-', '');
-          if (this.maps && this.maps[searchFor]) {
-            const { map, marker } = this.maps[searchFor];
-            const searchButton = this.shadowRoot.querySelector(`[data-search-for="${searchFor}"]`);
-            this.searchAddress(input.value, map, marker, searchButton);
-          }
-        }
-      });
+      input.addEventListener('keypress', (e) => this._handleSearchInputKeypress(e, input));
     });
   }
 
   clearViewMaps() {
     // Remove map instances that use 'map-view-' prefix
     Object.keys(this.maps).forEach(mapId => {
-      if (mapId.includes('map-view-')) {
-        const map = this.maps[mapId];
-        if (map && map.remove) {
-          map.remove();
+      if (mapId.includes('map-view-') || mapId.includes('map-preview-')) {
+        const mapEntry = this.maps[mapId];
+        if (mapEntry && typeof mapEntry === 'object' && mapEntry.map && mapEntry.map.remove) {
+          mapEntry.map.remove();
         }
         delete this.maps[mapId];
         delete this.markers[mapId];
@@ -573,9 +643,9 @@ class OfficeLocationsComponent extends AssetComponent {
     // Remove map instances that use 'map-preview-' prefix
     Object.keys(this.maps).forEach(mapId => {
       if (mapId.includes('map-preview-')) {
-        const map = this.maps[mapId];
-        if (map && map.remove) {
-          map.remove();
+        const mapEntry = this.maps[mapId];
+        if (mapEntry && typeof mapEntry === 'object' && mapEntry.map && mapEntry.map.remove) {
+          mapEntry.map.remove();
         }
         delete this.maps[mapId];
         delete this.markers[mapId];
@@ -584,137 +654,75 @@ class OfficeLocationsComponent extends AssetComponent {
   }
 
   initializeViewMaps() {
-    // Initialize map for headquarters if coordinates exist
-    const hq = this.data.headquarters || {};
-    if (hq.latitude && hq.longitude) {
-      const mapContainer = this.shadowRoot.getElementById('map-view-hq');
-      if (mapContainer) {
-        this.initViewMap('map-view-hq', hq.latitude, hq.longitude);
-      }
-    }
-
-    // Initialize maps for other offices if coordinates exist
-    if (this.data.offices && this.data.offices.length > 0) {
-      this.data.offices.forEach((office, index) => {
-        if (office.latitude && office.longitude) {
-          const mapContainer = this.shadowRoot.getElementById(`map-view-office-${index}`);
-          if (mapContainer) {
-            this.initViewMap(`map-view-office-${index}`, office.latitude, office.longitude);
-          }
-        }
-      });
-    }
+    this._initializeLocationMaps('view');
   }
 
   initializePreviewMaps() {
-    // Initialize map for headquarters if coordinates exist
+    this._initializeLocationMaps('preview');
+  }
+
+  _initializeLocationMaps(mode) {
+    const mapPrefix = mode === 'preview' ? 'map-preview-' : 'map-view-';
     const hq = this.data.headquarters || {};
+
     if (hq.latitude && hq.longitude) {
-      const mapContainer = this.shadowRoot.getElementById('map-preview-hq');
+      const mapContainer = this.shadowRoot.getElementById(`${mapPrefix}hq`);
       if (mapContainer) {
-        this.initPreviewMap('map-preview-hq', hq.latitude, hq.longitude);
+        this._initializeReadOnlyMap(`${mapPrefix}hq`, hq.latitude, hq.longitude, mode);
       }
     }
 
-    // Initialize maps for other offices if coordinates exist
-    if (this.data.offices && this.data.offices.length > 0) {
+    if (this.data.offices?.length) {
       this.data.offices.forEach((office, index) => {
         if (office.latitude && office.longitude) {
-          const mapContainer = this.shadowRoot.getElementById(`map-preview-office-${index}`);
+          const mapContainer = this.shadowRoot.getElementById(`${mapPrefix}office-${index}`);
           if (mapContainer) {
-            this.initPreviewMap(`map-preview-office-${index}`, office.latitude, office.longitude);
+            this._initializeReadOnlyMap(`${mapPrefix}office-${index}`, office.latitude, office.longitude, mode);
           }
         }
       });
     }
   }
 
-  initViewMap(mapId, latitude, longitude) {
+  _initializeReadOnlyMap(mapId, latitude, longitude, mode) {
     const mapContainer = this.shadowRoot.getElementById(mapId);
-    if (!mapContainer) {
-      return;
-    }
+    if (!mapContainer || this.maps[mapId]) return;
 
-    // Check if map already exists
-    if (this.maps[mapId]) {
-      return;
-    }
-
-    // Mark map as initializing to prevent duplicate calls
     this.maps[mapId] = 'initializing';
 
-    // Ensure Leaflet is loaded globally
     this.ensureLeafletLoaded().then(() => {
       try {
         const map = window.L.map(mapContainer).setView([latitude, longitude], 13);
-        this.maps[mapId] = map; // Store actual map instance
+        const isDraggable = mode === 'preview';
+
+        const marker = window.L.marker([latitude, longitude], { draggable: isDraggable })
+          .addTo(map)
+          .bindPopup(`📍 ${isDraggable ? 'Drag to update' : 'Location'}`)
+          .openPopup();
 
         window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap contributors',
           maxZoom: 19
         }).addTo(map);
 
-        // Create non-draggable marker for view mode
-        const marker = window.L.marker([latitude, longitude])
-          .addTo(map)
-          .bindPopup(`📍 Location`)
-          .openPopup();
-
+        this.maps[mapId] = { map, marker };
         this.markers[mapId] = marker;
+
+        if (isDraggable) {
+          marker.on('dragend', () => this._handleMarkerDragEnd(mapId));
+        }
       } catch (error) {
-        // Clear the initializing flag on error
         delete this.maps[mapId];
       }
     });
   }
 
-  initPreviewMap(mapId, latitude, longitude) {
-    const mapContainer = this.shadowRoot.getElementById(mapId);
-    if (!mapContainer) {
-      return;
-    }
+  _handleMarkerDragEnd(mapId) {
+    const marker = this.maps[mapId]?.marker;
+    if (!marker) return;
 
-    // Check if map already exists
-    if (this.maps[mapId]) {
-      return;
-    }
-
-    // Mark map as initializing to prevent duplicate calls
-    this.maps[mapId] = 'initializing';
-
-    // Ensure Leaflet is loaded globally
-    this.ensureLeafletLoaded().then(() => {
-      try {
-        const map = window.L.map(mapContainer).setView([latitude, longitude], 13);
-        this.maps[mapId] = map; // Store actual map instance
-
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 19
-        }).addTo(map);
-
-        // Create draggable marker for preview mode (edit)
-        const marker = window.L.marker([latitude, longitude], { draggable: true })
-          .addTo(map)
-          .bindPopup(`📍 Drag to update location`)
-          .openPopup();
-
-        this.markers[mapId] = marker;
-
-        // Handle marker drag events to update form fields
-        marker.on('dragend', () => {
-          const newLatLng = marker.getLatLng();
-          const newLat = newLatLng.lat.toFixed(6);
-          const newLng = newLatLng.lng.toFixed(6);
-
-          // Update form fields based on mapId
-          this.updateCoordinatesInForm(mapId, newLat, newLng);
-        });
-      } catch (error) {
-        // Clear the initializing flag on error
-        delete this.maps[mapId];
-      }
-    });
+    const { lat, lng } = marker.getLatLng();
+    this._updateCoordinatesFromMap(mapId, lat.toFixed(6), lng.toFixed(6));
   }
 
   ensureLeafletLoaded() {
@@ -744,56 +752,45 @@ class OfficeLocationsComponent extends AssetComponent {
   }
 
   updateCoordinatesInForm(mapId, latitude, longitude) {
-    // Parse mapId to determine if it's HQ or office and get index
     const isHQ = mapId.includes('hq');
     const officeIndex = !isHQ ? parseInt(mapId.split('-').pop()) : null;
 
+    this._updateCoordinatesFromMap(mapId, latitude, longitude);
+  }
+
+  _updateCoordinatesFromMap(mapId, latitude, longitude) {
+    const isHQ = mapId.includes('hq');
+    const officeIndex = !isHQ ? parseInt(mapId.split('-').pop()) : null;
+
+    // Update data object
     if (isHQ) {
-      // Update HQ latitude and longitude fields
-      const latInput = this.shadowRoot.querySelector('[name="headquarters_latitude"]');
-      const lngInput = this.shadowRoot.querySelector('[name="headquarters_longitude"]');
-
-      if (latInput) {
-        latInput.value = latitude;
-        latInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      if (lngInput) {
-        lngInput.value = longitude;
-        lngInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    } else if (officeIndex !== null) {
-      // Update office latitude and longitude fields
-      const latInput = this.shadowRoot.querySelector(`[name="offices_${officeIndex}_latitude"]`);
-      const lngInput = this.shadowRoot.querySelector(`[name="offices_${officeIndex}_longitude"]`);
-
-      if (latInput) {
-        latInput.value = latitude;
-        latInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      if (lngInput) {
-        lngInput.value = longitude;
-        lngInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+      if (!this.data.headquarters) this.data.headquarters = {};
+      this.data.headquarters.latitude = parseFloat(latitude);
+      this.data.headquarters.longitude = parseFloat(longitude);
+    } else if (this.data.offices?.[officeIndex]) {
+      this.data.offices[officeIndex].latitude = parseFloat(latitude);
+      this.data.offices[officeIndex].longitude = parseFloat(longitude);
     }
 
-    // Update the preview to reflect new coordinates
-    const coordDisplay = this.shadowRoot.querySelector(`#${mapId}`);
-    if (coordDisplay && coordDisplay.nextElementSibling) {
-      const infoDiv = coordDisplay.nextElementSibling;
-      // Find and update the coordinate paragraph
-      const coordParagraph = infoDiv.querySelector('p:has-text("🗺️")');
-      if (coordParagraph) {
-        coordParagraph.textContent = `🗺️ ${latitude}, ${longitude}`;
-      } else {
-        // If not found with :has, search manually
-        const paragraphs = infoDiv.querySelectorAll('p');
-        for (let p of paragraphs) {
-          if (p.textContent.includes('🗺️')) {
-            p.textContent = `🗺️ ${latitude}, ${longitude}`;
-            break;
-          }
-        }
-      }
+    // Update form inputs
+    this._updateFormInputs(isHQ, officeIndex, latitude, longitude);
+  }
+
+  _updateFormInputs(isHQ, officeIndex, latitude, longitude) {
+    if (isHQ) {
+      this._updateInput('[name="headquarters_latitude"]', latitude);
+      this._updateInput('[name="headquarters_longitude"]', longitude);
+    } else {
+      this._updateInput(`[name="offices_${officeIndex}_latitude"]`, latitude);
+      this._updateInput(`[name="offices_${officeIndex}_longitude"]`, longitude);
+    }
+  }
+
+  _updateInput(selector, value) {
+    const input = this.shadowRoot?.querySelector(selector);
+    if (input) {
+      input.value = value;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
     }
   }
 

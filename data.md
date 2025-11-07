@@ -1,5 +1,5 @@
 # qonto - Company Profile
-Generated: 05/11/2025
+Generated: 07/11/2025
 
 ## Company Description
 
@@ -1250,6 +1250,3 @@ Generated: 05/11/2025
   }
 }
 ```
-
----
-

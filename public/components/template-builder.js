@@ -66,9 +66,23 @@ class TemplateBuilder {
    * Generate edit mode template with live preview
    * @param {string} content - Edit form content
    * @param {string} preview - Live preview content
+   * @param {boolean} skipDrawer - If true, don't include drawer (it's in light DOM)
    * @returns {string} Edit mode wrapper HTML
    */
-  static getEditModeTemplate(content, preview) {
+  static getEditModeTemplate(content, preview, skipDrawer = false) {
+    if (skipDrawer) {
+      return `
+        <div class="edit-overlay"></div>
+        <div class="preview-panel">
+          <div class="preview-scroll-container">
+            <div class="preview-content">
+              ${preview}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="edit-overlay"></div>
       <div class="preview-panel">
@@ -132,7 +146,7 @@ class TemplateBuilder {
         border-bottom: 2px solid #e5e7eb;
         background-color: #fafbfc;
         flex-shrink: 0;
-        z-index: 10;
+        z-index: 1;
       }
 
       .component-header h2 {
@@ -145,6 +159,7 @@ class TemplateBuilder {
       .button-group {
         display: flex;
         gap: 0.75rem;
+        pointer-events: auto;
       }
 
       .btn-edit, .btn-save, .btn-cancel {
@@ -155,6 +170,27 @@ class TemplateBuilder {
         cursor: pointer;
         transition: all 0.2s;
         font-size: 0.875rem;
+        pointer-events: auto;
+      }
+
+      .btn-collapse {
+        padding: 0.5rem 1.5rem;
+        border: none;
+        border-radius: 0.25rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.875rem;
+        background-color: #f3f4f6;
+        color: #374151;
+        border: 1px solid #e5e7eb;
+        pointer-events: auto;
+      }
+
+      .btn-collapse:hover {
+        background-color: #e5e7eb;
+        border-color: #d1d5db;
+        transform: translateY(-1px);
       }
 
       .btn-download {
@@ -167,6 +203,7 @@ class TemplateBuilder {
         font-size: 0.875rem;
         background-color: #8b5cf6;
         color: white;
+        pointer-events: auto;
       }
 
       .btn-download:hover {
@@ -225,25 +262,26 @@ class TemplateBuilder {
 
       /* ========== Edit Mode - Drawer ========== */
       .edit-overlay {
-        position: fixed;
+        position: absolute;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
         background-color: transparent;
-        z-index: 40;
+        z-index: 999;
+        pointer-events: auto;
       }
 
       .edit-drawer {
-        position: fixed;
+        position: absolute;
         top: 0;
         right: 0;
         width: 500px;
-        height: 100vh;
+        height: 100%;
         background-color: white;
         border-left: 1px solid #e5e7eb;
         box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-        z-index: 50;
+        z-index: 1000;
         display: flex;
         flex-direction: column;
       }
@@ -256,6 +294,9 @@ class TemplateBuilder {
         border-bottom: 1px solid #e5e7eb;
         background-color: white;
         flex-shrink: 0;
+        position: sticky;
+        top: 0;
+        z-index: 1001;
       }
 
       .edit-drawer-header h3 {
@@ -269,6 +310,7 @@ class TemplateBuilder {
         flex: 1;
         overflow-y: auto;
         padding: 2rem;
+        padding-top: 1rem;
         background-color: white;
       }
 

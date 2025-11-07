@@ -48,3 +48,443 @@ body {
     flex-direction: column;
     gap: 1.5rem;
 }
+
+/* ========================================================================== */
+/* ENHANCEMENTS: Animations, Sticky Header, Navigation */
+/* ========================================================================== */
+
+/* Fade-in animation for sections */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-in-down {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-in-left {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse-highlight {
+
+    0%,
+    100% {
+        background-color: transparent;
+    }
+
+    50% {
+        background-color: rgba(34, 197, 94, 0.1);
+    }
+}
+
+/* Stagger animation delays for sequential appearance */
+[data-asset-name]:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+[data-asset-name]:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+[data-asset-name]:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+[data-asset-name]:nth-child(4) {
+    animation-delay: 0.4s;
+}
+
+[data-asset-name]:nth-child(5) {
+    animation-delay: 0.5s;
+}
+
+[data-asset-name]:nth-child(6) {
+    animation-delay: 0.6s;
+}
+
+[data-asset-name]:nth-child(7) {
+    animation-delay: 0.7s;
+}
+
+[data-asset-name]:nth-child(8) {
+    animation-delay: 0.8s;
+}
+
+[data-asset-name]:nth-child(9) {
+    animation-delay: 0.9s;
+}
+
+[data-asset-name]:nth-child(10) {
+    animation-delay: 1s;
+}
+
+/* Sticky header enhancement */
+header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    animation: fade-in-down 0.4s ease-out;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Navigation sidebar */
+.nav-sidebar {
+    display: flex;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    overflow-x: auto;
+    z-index: 50;
+    pointer-events: auto;
+}
+
+.nav-sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 0;
+    width: 100%;
+}
+
+.nav-sidebar li {
+    padding: 0;
+    margin: 0;
+}
+
+.nav-sidebar a {
+    display: inline-block;
+    padding: 8px 16px;
+    color: #4b5563;
+    text-decoration: none;
+    font-size: 0.9rem;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    pointer-events: auto;
+    white-space: nowrap;
+}
+
+.nav-sidebar a:hover {
+    background-color: #f5f7fb;
+    color: #0f172a;
+    border-bottom-color: #10b981;
+}
+
+.nav-sidebar a.active {
+    background-color: #ecfdf5;
+    color: #10b981;
+    border-bottom-color: #10b981;
+    font-weight: 600;
+}
+
+/* Progress bar at top of page */
+.progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #3b82f6);
+    z-index: 101;
+    transition: width 0.3s ease;
+}
+
+/* Collapse/Expand toggle buttons */
+.toggle-collapse {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.5rem 1.5rem;
+    margin: 0;
+    background-color: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    z-index: 20;
+    pointer-events: auto;
+}
+
+.toggle-collapse:hover {
+    background-color: #e5e7eb;
+    border-color: #d1d5db;
+}
+
+/* Collapsed section */
+.asset-wrapper {
+    position: relative;
+    margin-bottom: 1.5rem;
+    z-index: 1;
+    padding-top: 0;
+    transition: max-height 0.3s ease;
+}
+
+.asset-wrapper.collapsed {
+    max-height: 86px;
+    overflow: hidden;
+}
+
+/* Custom web components - allow clicks on buttons */
+company-description,
+their-story,
+company-values,
+key-numbers,
+funding-parser,
+leadership,
+office-locations,
+perks-benefits,
+remote-policy {
+    pointer-events: auto;
+}
+
+/* Component collapse support */
+[data-asset-name] {
+    animation: fade-in 0.5s ease-out backwards;
+    transition: max-height 0.3s ease;
+}
+
+[data-asset-name].collapsed {
+    max-height: 86px;
+    overflow: hidden;
+}
+
+/* Section highlight on scroll */
+[data-asset-name].highlight {
+    animation: pulse-highlight 1s ease-in-out;
+}
+
+/* Search/Filter bar */
+.search-input {
+    width: 100%;
+    max-width: 500px;
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    pointer-events: auto;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.search-input::placeholder {
+    color: #9ca3af;
+}
+
+/* Hide sections based on search */
+[data-asset-name].hidden {
+    display: none;
+}
+
+/* Light DOM Edit Drawer */
+.edit-drawer-light-dom {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 500px;
+    height: 100vh;
+    background-color: white;
+    border-left: 1px solid #e5e7eb;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+    pointer-events: none;
+}
+
+.drawer-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    background: linear-gradient(to right, #d1d5db, transparent);
+    transition: background 0.2s ease;
+    z-index: 10;
+    pointer-events: auto;
+}
+
+.drawer-resize-handle:hover {
+    background: linear-gradient(to right, #6366f1, transparent);
+}
+
+.edit-drawer-light-dom .edit-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    padding-left: 2rem;
+    border-bottom: 1px solid #e5e7eb;
+    background-color: white;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+    pointer-events: auto;
+}
+
+.edit-drawer-light-dom .edit-drawer-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.edit-drawer-light-dom .edit-scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+    padding-left: 2.5rem;
+    padding-top: 1rem;
+    background-color: white;
+    pointer-events: auto;
+}
+
+.edit-drawer-light-dom .button-group {
+    display: flex;
+    gap: 0.75rem;
+    pointer-events: auto;
+}
+
+.edit-drawer-light-dom .btn-save,
+.edit-drawer-light-dom .btn-cancel {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    border-radius: 0.25rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.875rem;
+    pointer-events: auto;
+}
+
+.edit-drawer-light-dom .btn-save {
+    background-color: #10b981;
+    color: white;
+}
+
+.edit-drawer-light-dom .btn-save:hover {
+    background-color: #059669;
+    transform: translateY(-1px);
+}
+
+.edit-drawer-light-dom .btn-cancel {
+    background-color: #6b7280;
+    color: white;
+}
+
+.edit-drawer-light-dom .btn-cancel:hover {
+    background-color: #4b5563;
+    transform: translateY(-1px);
+}
+
+/* Ensure form elements in drawer are clickable */
+.edit-drawer-light-dom input,
+.edit-drawer-light-dom textarea,
+.edit-drawer-light-dom select,
+.edit-drawer-light-dom button {
+    pointer-events: auto;
+}
+
+/* Match highlight in text */
+.search-highlight {
+    background-color: #fef08a;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-weight: 500;
+}
+
+/* Fix map z-index to not overlap other elements */
+.leaflet-container {
+    z-index: 10 !important;
+}
+
+.leaflet-popup {
+    z-index: 11 !important;
+}
+
+.leaflet-control {
+    z-index: 12 !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .nav-sidebar {
+        position: static;
+        width: 100%;
+        max-height: none;
+        margin-bottom: 0;
+        box-shadow: none;
+        border-top: 1px solid #e5e7eb;
+        overflow-x: auto;
+    }
+
+    .nav-sidebar a {
+        border-bottom: 2px solid transparent;
+    }
+
+    .nav-sidebar a:hover {
+        border-bottom-color: #10b981;
+    }
+
+    .nav-sidebar a.active {
+        border-bottom-color: #10b981;
+    }
+}
+
+@media (max-width: 640px) {
+    .nav-sidebar {
+        display: none;
+    }
+
+    header {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    header .search-input {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .toggle-collapse {
+        padding: 4px 8px;
+        font-size: 0.8rem;
+    }
+}
