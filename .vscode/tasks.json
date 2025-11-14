@@ -1,0 +1,113 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Server",
+      "type": "shell",
+      "command": "ruby",
+      "args": ["server.rb"],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Server starting",
+          "endsPattern": "^(?=Server|listening)"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Open App",
+      "type": "shell",
+      "command": "sleep 2 && $BROWSER http://localhost:4567",
+      "dependsOn": "Start Server",
+      "presentation": {
+        "reveal": "silent"
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    },
+    {
+      "label": "Install Dependencies",
+      "type": "shell",
+      "command": "bundle",
+      "args": ["install"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "group": {
+        "kind": "build"
+      }
+    },
+    {
+      "label": "Bundle Update",
+      "type": "shell",
+      "command": "bundle",
+      "args": ["update"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "group": {
+        "kind": "build"
+      }
+    },
+    {
+      "label": "Check Server Health",
+      "type": "shell",
+      "command": "curl",
+      "args": ["-s", "-o", "/dev/null", "-w", "HTTP Status: %{http_code}\\n", "http://localhost:4567"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Test API - Get Assets",
+      "type": "shell",
+      "command": "curl",
+      "args": ["-s", "-X", "GET", "http://localhost:4567/api/assets", "-H", "Content-Type: application/json"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "View data.md",
+      "type": "shell",
+      "command": "cat",
+      "args": ["data.md"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Tail Server Logs",
+      "type": "shell",
+      "command": "tail",
+      "args": ["-f", ".server.log"],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}

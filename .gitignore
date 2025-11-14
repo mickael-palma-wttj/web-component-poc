@@ -11,10 +11,8 @@
 /vendor/bundle/
 /lib/bundler/man/
 /.bundle
-*.lock
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo

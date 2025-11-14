@@ -1,0 +1,18 @@
+{
+    "name": "Web Component POC",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "forwardPorts": [
+        4567
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "Shopify.ruby-lsp"
+            ]
+        }
+    },
+    "postCreateCommand": "bundle install",
+    "remoteUser": "vscode"
+}
