@@ -1,4 +1,3 @@
-````markdown
 # Web Component POC - Asset Editor
 
 A powerful web-based asset editor for managing company profiles with interactive web components. Edit company descriptions, leadership teams, funding information, office locations, and more with an intuitive interface.
@@ -309,5 +308,3 @@ MIT
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit issues and enhancement requests.
-
-````
