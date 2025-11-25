@@ -17,102 +17,36 @@ class RemotePolicyComponent extends AssetComponent {
       <div class="section">
         <div class="info-grid">
           <div class="info-item">
-            <strong>Model</strong>
-            <span style="font-size: 1.2rem; font-weight: bold; color: #007bff;">${d.model || 'N/A'}</span>
-          </div>
-          <div class="info-item" style="grid-column: 1 / -1;">
-            <strong>Summary</strong>
-            <span>${d.summary || 'N/A'}</span>
+            <strong>Work Models</strong>
+            <span style="font-size: 1rem; color: #007bff;">${(d.models || []).join(', ') || 'N/A'}</span>
           </div>
         </div>
       </div>
 
-      ${d.workLocation ? `
-        <div class="section">
-          <h3>📍 Work Location</h3>
-          <div class="array-item">
-            <strong>Policy</strong>
-            <p class="text-content">${d.workLocation.policy || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Office Expectation</strong>
-            <p class="text-content">${d.workLocation.officeExpectation || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Work From Anywhere</strong>
-            <p class="text-content">${d.workLocation.workFromAnywhere || ''}</p>
-          </div>
-        </div>
-      ` : ''}
+      <div class="section">
+        <h3>Summary</h3>
+        <p class="text-content">${d.summary || ''}</p>
+      </div>
 
-      ${d.equipment ? `
-        <div class="section">
-          <h3>💻 Equipment</h3>
-          <div class="array-item">
-            <strong>Budget</strong>
-            <p class="text-content">${d.equipment.budget || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Provided</strong>
-            <p class="text-content">${d.equipment.provided || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Support</strong>
-            <p class="text-content">${d.equipment.support || ''}</p>
-          </div>
-        </div>
-      ` : ''}
+      <div class="section">
+        <h3>Policy Details</h3>
+        <p class="text-content">${d.policy_details || ''}</p>
+      </div>
 
-      ${d.schedule ? `
+      ${d.sources && d.sources.length > 0 ? `
         <div class="section">
-          <h3>⏰ Schedule</h3>
-          <div class="array-item">
-            <strong>Flexibility</strong>
-            <p class="text-content">${d.schedule.flexibility || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Core Hours</strong>
-            <p class="text-content">${d.schedule.coreHours || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Asynchronous Work</strong>
-            <p class="text-content">${d.schedule.asynchronous || ''}</p>
-          </div>
-        </div>
-      ` : ''}
-
-      ${d.tools ? `
-        <div class="section">
-          <h3>🛠️ Tools</h3>
-          <div class="array-item">
-            <strong>Communication</strong>
-            <p class="text-content">${d.tools.communication || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Collaboration</strong>
-            <p class="text-content">${d.tools.collaboration || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Socializing</strong>
-            <p class="text-content">${d.tools.socializing || ''}</p>
-          </div>
-        </div>
-      ` : ''}
-
-      ${d.culture ? `
-        <div class="section">
-          <h3>🤝 Culture</h3>
-          <div class="array-item">
-            <strong>In-Person Events</strong>
-            <p class="text-content">${d.culture.inPerson || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Remote Culture</strong>
-            <p class="text-content">${d.culture.remoteCulture || ''}</p>
-          </div>
-          <div class="array-item">
-            <strong>Inclusion</strong>
-            <p class="text-content">${d.culture.inclusion || ''}</p>
+          <h3>Sources</h3>
+          <div class="sources-list">
+            ${d.sources.map(source => `
+              <div class="source-item">
+                <div class="source-header">
+                  <strong>${source.title}</strong>
+                  <span class="source-type">${source.type}</span>
+                </div>
+                <div class="source-url"><a href="${source.url}" target="_blank">${source.url}</a></div>
+                <div class="source-date">${source.date}</div>
+              </div>
+            `).join('')}
           </div>
         </div>
       ` : ''}
@@ -121,169 +55,91 @@ class RemotePolicyComponent extends AssetComponent {
 
   renderEdit() {
     const d = this.data;
-    const workLoc = d.workLocation || {};
-    const equip = d.equipment || {};
-    const sched = d.schedule || {};
-    const tools = d.tools || {};
-    const cult = d.culture || {};
-
     return `
       <form class="edit-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Model</label>
-            <input type="text" data-path="model" value="${this.escapeHtml(d.model || '')}" />
-            <div class="form-hint">e.g., "Hybrid", "Remote-First", "Flexible"</div>
-          </div>
+        <div class="form-group">
+          <label>Work Models</label>
+          <input type="text" data-path="models" value="${this.escapeHtml((d.models || []).join(', '))}" />
+          <div class="form-hint">Comma-separated list of work models (e.g., "Hybrid-Flexible", "Remote-First")</div>
         </div>
 
         <div class="form-group">
           <label>Summary</label>
-          <textarea data-path="summary" rows="3">${this.escapeHtml(d.summary || '')}</textarea>
-          <div class="form-hint">Brief overview of the remote work policy</div>
+          <textarea data-path="summary" rows="4">${this.escapeHtml(d.summary || '')}</textarea>
+          <div class="form-hint">Brief overview of the remote work policy and company approach</div>
+        </div>
+
+        <div class="form-group">
+          <label>Policy Details</label>
+          <textarea data-path="policy_details" rows="4">${this.escapeHtml(d.policy_details || '')}</textarea>
+          <div class="form-hint">Detailed policy information</div>
         </div>
 
         <div class="array-editor">
           <div class="array-editor-header">
-            <label>📍 Work Location</label>
+            <label>Sources</label>
+            <button type="button" class="btn-add-item" data-action="add-source">+ Add Source</button>
           </div>
-          <div class="array-items">
-            <div class="array-item-edit">
-              <div class="form-group">
-                <label>Policy</label>
-                <textarea data-path="workLocation.policy" rows="3">${this.escapeHtml(workLoc.policy || '')}</textarea>
-                <div class="form-hint">Overall location policy</div>
+          <div class="array-items" id="sources-container">
+            ${(d.sources || []).map((source, index) => `
+              <div class="array-item-edit" data-index="${index}">
+                <div class="array-item-header">
+                  <span class="array-item-title">Source #${index + 1}</span>
+                  <button type="button" class="btn-remove-item" data-action="remove-source" data-index="${index}">Remove</button>
+                </div>
+                <div class="form-group">
+                  <label>Title</label>
+                  <input type="text" data-path="sources.${index}.title" value="${this.escapeHtml(source.title || '')}" />
+                </div>
+                <div class="form-group">
+                  <label>URL</label>
+                  <input type="url" data-path="sources.${index}.url" value="${this.escapeHtml(source.url || '')}" />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Date</label>
+                    <input type="text" data-path="sources.${index}.date" value="${this.escapeHtml(source.date || '')}" />
+                  </div>
+                  <div class="form-group">
+                    <label>Type</label>
+                    <input type="text" data-path="sources.${index}.type" value="${this.escapeHtml(source.type || '')}" />
+                  </div>
+                </div>
               </div>
-              <div class="form-group">
-                <label>Office Expectation</label>
-                <textarea data-path="workLocation.officeExpectation" rows="2">${this.escapeHtml(workLoc.officeExpectation || '')}</textarea>
-                <div class="form-hint">How often employees are expected in office</div>
-              </div>
-              <div class="form-group">
-                <label>Work From Anywhere</label>
-                <textarea data-path="workLocation.workFromAnywhere" rows="2">${this.escapeHtml(workLoc.workFromAnywhere || '')}</textarea>
-                <div class="form-hint">Policy on working from different locations</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="array-editor">
-          <div class="array-editor-header">
-            <label>💻 Equipment</label>
-          </div>
-          <div class="array-items">
-            <div class="array-item-edit">
-              <div class="form-group">
-                <label>Budget</label>
-                <textarea data-path="equipment.budget" rows="2">${this.escapeHtml(equip.budget || '')}</textarea>
-                <div class="form-hint">Budget provided for equipment</div>
-              </div>
-              <div class="form-group">
-                <label>Provided</label>
-                <textarea data-path="equipment.provided" rows="2">${this.escapeHtml(equip.provided || '')}</textarea>
-                <div class="form-hint">What equipment is provided</div>
-              </div>
-              <div class="form-group">
-                <label>Support</label>
-                <textarea data-path="equipment.support" rows="2">${this.escapeHtml(equip.support || '')}</textarea>
-                <div class="form-hint">Technical support available</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="array-editor">
-          <div class="array-editor-header">
-            <label>⏰ Schedule</label>
-          </div>
-          <div class="array-items">
-            <div class="array-item-edit">
-              <div class="form-group">
-                <label>Flexibility</label>
-                <textarea data-path="schedule.flexibility" rows="2">${this.escapeHtml(sched.flexibility || '')}</textarea>
-                <div class="form-hint">How flexible are working hours</div>
-              </div>
-              <div class="form-group">
-                <label>Core Hours</label>
-                <textarea data-path="schedule.coreHours" rows="2">${this.escapeHtml(sched.coreHours || '')}</textarea>
-                <div class="form-hint">Required overlap hours if any</div>
-              </div>
-              <div class="form-group">
-                <label>Asynchronous Work</label>
-                <textarea data-path="schedule.asynchronous" rows="2">${this.escapeHtml(sched.asynchronous || '')}</textarea>
-                <div class="form-hint">Policy on async communication</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="array-editor">
-          <div class="array-editor-header">
-            <label>🛠️ Tools</label>
-          </div>
-          <div class="array-items">
-            <div class="array-item-edit">
-              <div class="form-group">
-                <label>Communication</label>
-                <textarea data-path="tools.communication" rows="2">${this.escapeHtml(tools.communication || '')}</textarea>
-                <div class="form-hint">Communication tools used</div>
-              </div>
-              <div class="form-group">
-                <label>Collaboration</label>
-                <textarea data-path="tools.collaboration" rows="2">${this.escapeHtml(tools.collaboration || '')}</textarea>
-                <div class="form-hint">Collaboration platforms</div>
-              </div>
-              <div class="form-group">
-                <label>Socializing</label>
-                <textarea data-path="tools.socializing" rows="2">${this.escapeHtml(tools.socializing || '')}</textarea>
-                <div class="form-hint">Tools for team bonding</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="array-editor">
-          <div class="array-editor-header">
-            <label>🤝 Culture</label>
-          </div>
-          <div class="array-items">
-            <div class="array-item-edit">
-              <div class="form-group">
-                <label>In-Person Events</label>
-                <textarea data-path="culture.inPerson" rows="2">${this.escapeHtml(cult.inPerson || '')}</textarea>
-                <div class="form-hint">Team meetups and events</div>
-              </div>
-              <div class="form-group">
-                <label>Remote Culture</label>
-                <textarea data-path="culture.remoteCulture" rows="2">${this.escapeHtml(cult.remoteCulture || '')}</textarea>
-                <div class="form-hint">How remote culture is maintained</div>
-              </div>
-              <div class="form-group">
-                <label>Inclusion</label>
-                <textarea data-path="culture.inclusion" rows="2">${this.escapeHtml(cult.inclusion || '')}</textarea>
-                <div class="form-hint">Ensuring remote workers feel included</div>
-              </div>
-            </div>
+            `).join('')}
           </div>
         </div>
       </form>
     `;
   }
 
+  handleCustomAction(action, index) {
+    const parsedIndex = parseInt(index, 10);
+
+    switch (action) {
+      case 'add-source':
+        if (!this.data.sources) this.data.sources = [];
+        this.data.sources.push({ title: '', url: '', date: '', type: '' });
+        this.render();
+        break;
+      case 'remove-source':
+        if (this.data.sources && !isNaN(parsedIndex)) {
+          this.data.sources.splice(parsedIndex, 1);
+          this.render();
+        }
+        break;
+    }
+  }
+
   collectFormData(form) {
     const inputs = form.querySelectorAll('input, textarea, select');
 
-    // Initialize nested objects
-    if (!this.data.workLocation) this.data.workLocation = {};
-    if (!this.data.equipment) this.data.equipment = {};
-    if (!this.data.schedule) this.data.schedule = {};
-    if (!this.data.tools) this.data.tools = {};
-    if (!this.data.culture) this.data.culture = {};
-
     inputs.forEach(input => {
       const path = input.dataset.path;
-      if (path) {
+      if (path === 'models') {
+        // Parse comma-separated string into array
+        this.data.models = input.value.split(',').map(item => item.trim()).filter(item => item);
+      } else if (path) {
         this.setNestedValue(this.data, path, input.value);
       }
     });

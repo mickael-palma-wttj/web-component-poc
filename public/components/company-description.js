@@ -3,37 +3,27 @@ import { AssetComponent } from './base-component.js';
 class CompanyDescriptionComponent extends AssetComponent {
   // Configuration for array fields
   static ARRAY_CONFIGS = {
-    quickFacts: {
-      label: 'Quick Facts',
-      singularLabel: 'Fact',
+    sources: {
+      label: 'Sources',
+      singularLabel: 'Source',
       fields: [
-        { name: 'label', label: 'Label' },
-        { name: 'value', label: 'Value' }
+        { name: 'title', label: 'Title' },
+        { name: 'url', label: 'URL', type: 'url' },
+        { name: 'date', label: 'Date' },
+        { name: 'type', label: 'Type' }
       ],
       template: (item) => `
-        <div class="info-item">
-          <strong>${item.label}</strong>
-          <span>${item.value}</span>
+        <div class="source-item">
+          <div class="source-header">
+            <strong>${item.title}</strong>
+            <span class="source-type">${item.type}</span>
+          </div>
+          <div class="source-url"><a href="${item.url}" target="_blank">${item.url}</a></div>
+          <div class="source-date">${item.date}</div>
         </div>
       `,
-      containerClass: 'info-grid',
-      defaultValue: { label: '', value: '' }
-    },
-    keyProducts: {
-      label: 'Key Products',
-      singularLabel: 'Product',
-      fields: [
-        { name: 'name', label: 'Product Name' },
-        { name: 'description', label: 'Description', type: 'textarea', rows: 3 }
-      ],
-      template: (item) => `
-        <div class="array-item">
-          <strong>${item.name}</strong>
-          <p class="text-content">${item.description}</p>
-        </div>
-      `,
-      containerClass: 'array-list',
-      defaultValue: { name: '', description: '' }
+      containerClass: 'sources-list',
+      defaultValue: { title: '', url: '', date: '', type: '' }
     }
   };
 
@@ -56,11 +46,9 @@ class CompanyDescriptionComponent extends AssetComponent {
     }
 
     return `
-      ${this._renderSection('Tagline', `<p class="text-content">${d.tagline || ''}</p>`)}
-      ${this._renderSection('Overview', `<p class="text-content">${d.overview || ''}</p>`)}
-      ${this._renderArraySection('quickFacts', d.quickFacts)}
-      ${this._renderArraySection('keyProducts', d.keyProducts)}
-      ${this._renderSection('Target Market', `<p class="text-content">${d.targetMarket || ''}</p>`)}
+      ${this._renderSection('Title', `<h2>${d.title || ''}</h2>`)}
+      ${this._renderSection('Content', `<p class="text-content">${d.content || ''}</p>`)}
+      ${this._renderArraySection('sources', d.sources)}
     `;
   }
 
@@ -93,11 +81,9 @@ class CompanyDescriptionComponent extends AssetComponent {
     const d = this.data;
     return `
       <form class="edit-form">
-        ${this._renderTextField('Tagline', 'tagline', d.tagline, 'A catchy one-line description of the company')}
-        ${this._renderTextAreaField('Overview', 'overview', d.overview, 'Comprehensive company description', 6)}
-        ${this._renderTextAreaField('Target Market', 'targetMarket', d.targetMarket, 'Who are the primary customers?', 4)}
-        ${this._renderArrayEditor('quickFacts', d.quickFacts || [])}
-        ${this._renderArrayEditor('keyProducts', d.keyProducts || [])}
+        ${this._renderTextField('Title', 'title', d.title, 'Company description title')}
+        ${this._renderTextAreaField('Content', 'content', d.content, 'Detailed company description', 8)}
+        ${this._renderArrayEditor('sources', d.sources || [])}
       </form>
     `;
   }
