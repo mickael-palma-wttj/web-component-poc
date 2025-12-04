@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 ##
 # AssetParser
 #
@@ -10,8 +12,8 @@
 #   # => [{title: "Company Description", type: "text", data: {...}}, ...]
 #
 class AssetParser
-  JSON_BLOCK_PATTERN = /```json\n(.*?)\n```/m.freeze
-  SECTION_SEPARATOR = /^## /.freeze
+  JSON_BLOCK_PATTERN = /```json\n(.*?)\n```/m
+  SECTION_SEPARATOR = /^## /
 
   def initialize(content)
     @content = content
@@ -36,7 +38,7 @@ class AssetParser
   # Skip the first section (file header)
   #
   def sections_from(content)
-    content.split(SECTION_SEPARATOR)[1..-1] || []
+    content.split(SECTION_SEPARATOR)[1..] || []
   end
 
   ##

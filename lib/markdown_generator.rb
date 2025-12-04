@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 ##
 # MarkdownGenerator
 #
@@ -10,8 +12,8 @@
 #   File.write('data.md', markdown)
 #
 class MarkdownGenerator
-  TITLE = '# qonto - Company Profile'.freeze
-  SECTION_DIVIDER = '---'.freeze
+  TITLE = '# qonto - Company Profile'
+  SECTION_DIVIDER = '---'
 
   def initialize(assets)
     @assets = assets

@@ -5,50 +5,26 @@
  */
 
 // ==========================================
-// Module Initialization
-// ==========================================
-
-// Import all asset components
-import './components/base-component.js';
-import './components/company-description.js';
-import './components/their-story.js';
-import './components/key-numbers.js';
-import './components/funding-parser.js';
-import './components/leadership.js';
-import './components/office-locations.js';
-import './components/perks-benefits.js';
-import './components/remote-policy.js';
-
-// ==========================================
 // Configuration
 // ==========================================
+
+/**
+ * Component registry - populated from server
+ * @type {Object<string, {file: string, element: string}>}
+ */
+let COMPONENT_REGISTRY = {};
 
 /**
  * Maps internal asset type names to HTML custom element names
  * @type {Object<string, string>}
  */
-const COMPONENT_MAP = {
-    'company_description': 'company-description',
-    'their_story': 'their-story',
-    'key_numbers': 'key-numbers',
-    'funding_parser': 'funding-parser',
-    'leadership': 'leadership-component',
-    'office_locations': 'office-locations',
-    'perks_and_benefits': 'perks-benefits',
-    'remote_policy': 'remote-policy'
-};
+let COMPONENT_MAP = {};
 
 /**
- * List of all registered custom element names
- * @type {string[]}
+ * Set of loaded component types
+ * @type {Set<string>}
  */
-const COMPONENT_NAMES = Object.values(COMPONENT_MAP);
-
-/**
- * CSS selector for all component elements
- * @type {string}
- */
-const COMPONENT_SELECTOR = COMPONENT_NAMES.join(', ');
+const loadedComponents = new Set();
 
 /**
  * Notification display duration in milliseconds
@@ -73,6 +49,100 @@ let assets = [];
 let hasUserScrolled = false;
 
 // ==========================================
+// Component Loading
+// ==========================================
+
+/**
+ * Fetch component registry and bundle from server.
+ * 
+ * Loading flow:
+ * 1. Fetch registry from /api/components to get type → element mapping
+ * 2. Fetch bundled JS from /api/components/bundle for unloaded types
+ * 3. Execute bundle via script tag (async - custom elements defined after execution)
+ * 4. Mark types as loaded for deduplication
+ * 
+ * Note: The script executes asynchronously. Use customElements.whenDefined()
+ * to wait for elements to be registered before using them.
+ * 
+ * @async
+ * @param {string[]|null} types - Asset types to load (null = all)
+ * @returns {Promise<void>}
+ * @throws {Error} If registry or bundle fetch fails
+ */
+async function loadComponents(types = null) {
+    // Track types we're attempting to load for error recovery
+    let typesToLoad = [];
+
+    try {
+        // Step 1: Fetch registry
+        const registryUrl = types
+            ? `/api/components?types=${types.join(',')}`
+            : '/api/components';
+
+        const registryRes = await fetch(registryUrl);
+        const registryData = await registryRes.json();
+
+        if (!registryData.success) {
+            throw new Error(registryData.error);
+        }
+
+        // Step 2: Update global registry and map
+        COMPONENT_REGISTRY = { ...COMPONENT_REGISTRY, ...registryData.components };
+        for (const [type, info] of Object.entries(registryData.components)) {
+            COMPONENT_MAP[type] = info.element;
+        }
+
+        // Step 3: Determine which types need loading (deduplication)
+        typesToLoad = Object.keys(registryData.components)
+            .filter(type => !loadedComponents.has(type));
+
+        if (typesToLoad.length === 0) {
+            return;
+        }
+
+        // Step 4: Fetch bundle
+        const bundleUrl = `/api/components/bundle?types=${typesToLoad.join(',')}`;
+        const bundleRes = await fetch(bundleUrl);
+
+        if (!bundleRes.ok) {
+            const error = await bundleRes.json();
+            throw new Error(error.error);
+        }
+
+        const bundleCode = await bundleRes.text();
+
+        // Step 5: Execute bundle as module script
+        // Note: Script execution is async - custom elements are defined
+        // after the script runs, not immediately after appendChild.
+        // The caller should use customElements.whenDefined() to wait.
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = bundleCode;
+        document.head.appendChild(script);
+
+        // Step 6: Mark as loaded (optimistic - script will execute)
+        typesToLoad.forEach(type => loadedComponents.add(type));
+
+    } catch (error) {
+        // Rollback: Remove types we failed to load from the loaded set
+        // This allows retry on next loadComponents() call
+        typesToLoad.forEach(type => loadedComponents.delete(type));
+
+        console.error('Failed to load components:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get CSS selector for all loaded components
+ * @returns {string}
+ */
+function getComponentSelector() {
+    const elements = Object.values(COMPONENT_MAP);
+    return elements.length > 0 ? elements.join(', ') : '[data-component]';
+}
+
+// ==========================================
 // Utility Functions
 // ==========================================
 
@@ -81,7 +151,7 @@ let hasUserScrolled = false;
  * @returns {NodeListOf<Element>}
  */
 function getAllComponents() {
-    return document.querySelectorAll(COMPONENT_SELECTOR);
+    return document.querySelectorAll(getComponentSelector());
 }
 
 /**
@@ -136,12 +206,18 @@ function getHeaderHeight() {
 /**
  * Fetch all assets from the server
  * @async
+ * @param {string[]} [types] - Optional array of asset types to fetch
  * @returns {Promise<void>}
  * @throws {Error} If fetch fails or server returns error
  */
-async function loadAssets() {
+async function loadAssets(types = null) {
     try {
-        const response = await fetch('/api/assets');
+        let url = '/api/assets';
+        if (types && types.length > 0) {
+            url += `?types=${types.join(',')}`;
+        }
+
+        const response = await fetch(url);
         const result = await response.json();
 
         if (result.success) {
@@ -152,6 +228,55 @@ async function loadAssets() {
         }
     } catch (error) {
         showError(`Error loading assets: ${error.message}`);
+    }
+}
+
+/**
+ * Fetch a single asset by type from the server
+ * @async
+ * @param {string} type - The asset type to fetch
+ * @returns {Promise<Object|null>} The asset object or null if not found
+ * @throws {Error} If fetch fails or server returns error
+ */
+async function loadAssetByType(type) {
+    try {
+        const response = await fetch(`/api/assets/${type}`);
+        const result = await response.json();
+
+        if (result.success) {
+            return result.asset;
+        } else {
+            showError(`Failed to load asset: ${result.error}`);
+            return null;
+        }
+    } catch (error) {
+        showError(`Error loading asset: ${error.message}`);
+        return null;
+    }
+}
+
+/**
+ * Fetch selected assets from the server
+ * @async
+ * @param {string[]} types - Array of asset types to fetch
+ * @returns {Promise<Object[]>} Array of assets
+ * @throws {Error} If fetch fails or server returns error
+ */
+async function loadSelectedAssets(types) {
+    try {
+        const url = `/api/assets?types=${types.join(',')}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.success) {
+            return result.assets;
+        } else {
+            showError(`Failed to load assets: ${result.error}`);
+            return [];
+        }
+    } catch (error) {
+        showError(`Error loading assets: ${error.message}`);
+        return [];
     }
 }
 
@@ -280,7 +405,7 @@ function buildNavigation() {
  * @returns {void}
  */
 function scrollToAsset(index) {
-    const components = document.querySelectorAll(COMPONENT_NAMES.join(', '));
+    const components = getAllComponents();
     const navLinks = document.querySelectorAll('.nav-sidebar a');
 
     if (components[index]) {
@@ -650,7 +775,7 @@ function showError(message) {
  * @returns {void}
  */
 function debugComponents() {
-    const components = document.querySelectorAll(COMPONENT_NAMES.join(', '));
+    const components = getAllComponents();
 
     components.forEach((comp, i) => {
         console.log(`[Debug] Component ${i}:`, {
@@ -697,10 +822,16 @@ function attachEventListeners() {
  */
 async function initializeApp() {
     try {
+        // Load all components from server
+        await loadComponents();
+
         // Wait for all components to be registered
-        await Promise.all(
-            COMPONENT_NAMES.map(name => customElements.whenDefined(name))
-        );
+        const componentNames = Object.values(COMPONENT_MAP);
+        if (componentNames.length > 0) {
+            await Promise.all(
+                componentNames.map(name => customElements.whenDefined(name))
+            );
+        }
 
         // Attach event listeners
         attachEventListeners();
@@ -711,6 +842,7 @@ async function initializeApp() {
         // Attach debug tools
         attachDebugTools();
     } catch (error) {
+        console.error('Initialization error:', error);
         showError('Application failed to initialize. Please refresh the page.');
     }
 }

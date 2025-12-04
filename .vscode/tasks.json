@@ -4,8 +4,7 @@
     {
       "label": "Start Server",
       "type": "shell",
-      "command": "ruby",
-      "args": ["server.rb"],
+      "command": "source ~/.zshrc && bundle exec ruby server.rb",
       "isBackground": true,
       "problemMatcher": {
         "pattern": {
@@ -46,7 +45,9 @@
       "label": "Install Dependencies",
       "type": "shell",
       "command": "bundle",
-      "args": ["install"],
+      "args": [
+        "install"
+      ],
       "presentation": {
         "reveal": "always",
         "panel": "new"
@@ -59,7 +60,9 @@
       "label": "Bundle Update",
       "type": "shell",
       "command": "bundle",
-      "args": ["update"],
+      "args": [
+        "update"
+      ],
       "presentation": {
         "reveal": "always",
         "panel": "new"
@@ -72,7 +75,14 @@
       "label": "Check Server Health",
       "type": "shell",
       "command": "curl",
-      "args": ["-s", "-o", "/dev/null", "-w", "HTTP Status: %{http_code}\\n", "http://localhost:4567"],
+      "args": [
+        "-s",
+        "-o",
+        "/dev/null",
+        "-w",
+        "HTTP Status: %{http_code}\\n",
+        "http://localhost:4567"
+      ],
       "presentation": {
         "reveal": "always",
         "panel": "new"
@@ -82,7 +92,14 @@
       "label": "Test API - Get Assets",
       "type": "shell",
       "command": "curl",
-      "args": ["-s", "-X", "GET", "http://localhost:4567/api/assets", "-H", "Content-Type: application/json"],
+      "args": [
+        "-s",
+        "-X",
+        "GET",
+        "http://localhost:4567/api/assets",
+        "-H",
+        "Content-Type: application/json"
+      ],
       "presentation": {
         "reveal": "always",
         "panel": "new"
@@ -92,7 +109,9 @@
       "label": "View data.md",
       "type": "shell",
       "command": "cat",
-      "args": ["data.md"],
+      "args": [
+        "data.md"
+      ],
       "presentation": {
         "reveal": "always",
         "panel": "new"
@@ -102,7 +121,10 @@
       "label": "Tail Server Logs",
       "type": "shell",
       "command": "tail",
-      "args": ["-f", ".server.log"],
+      "args": [
+        "-f",
+        ".server.log"
+      ],
       "isBackground": true,
       "presentation": {
         "reveal": "always",

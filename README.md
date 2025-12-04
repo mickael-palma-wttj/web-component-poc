@@ -21,10 +21,18 @@ web-component-poc/
 ├── server.rb                        # Ruby Sinatra server
 ├── Gemfile                          # Ruby dependencies
 ├── package.json                     # Node dependencies (optional)
+├── lib/
+│   ├── asset_fetcher.rb             # Asset retrieval service
+│   ├── asset_parser.rb              # Markdown to JSON parser
+│   ├── asset_persister.rb           # Asset saving service
+│   ├── component_bundler.rb         # JS bundling service
+│   └── markdown_generator.rb        # JSON to Markdown generator
 ├── public/
 │   ├── index.html                   # Main HTML page
 │   ├── styles.css                   # Global styles
 │   ├── main.js                      # Application initialization
+│   ├── utils/
+│   │   └── spinner-styles.js        # Loading spinner styles
 │   └── components/
 │       ├── base-component.js        # Base class for all components
 │       ├── template-builder.js      # Centralized template generation
@@ -117,7 +125,19 @@ http://localhost:4567
 ## 🔌 API Endpoints
 
 ### GET `/api/assets`
-Returns all assets from `data.md` as JSON.
+Returns all assets from `data.md` as JSON. Supports optional filtering by asset types.
+
+**Query Parameters:**
+- `types` (optional): Comma-separated list of asset types to fetch
+
+**Examples:**
+```bash
+# Get all assets
+curl http://localhost:4567/api/assets
+
+# Get only company_description and key_numbers
+curl http://localhost:4567/api/assets?types=company_description,key_numbers
+```
 
 **Response:**
 ```json
@@ -129,7 +149,32 @@ Returns all assets from `data.md` as JSON.
       "type": "company_description",
       "data": { ... }
     }
-  ]
+  ],
+  "total": 8,
+  "filtered": 2
+}
+```
+
+### GET `/api/assets/:type`
+Returns a single asset by type from `data.md`.
+
+**Path Parameters:**
+- `type`: The asset type to fetch (e.g., `company_description`, `key_numbers`)
+
+**Example:**
+```bash
+curl http://localhost:4567/api/assets/company_description
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "asset": {
+    "title": "Company Description",
+    "type": "company_description",
+    "data": { ... }
+  }
 }
 ```
 
@@ -150,6 +195,62 @@ Saves all assets back to `data.md`.
   "message": "Assets saved successfully"
 }
 ```
+
+### GET `/api/components`
+Returns the component registry mapping asset types to their JS files and custom element names.
+
+**Query Parameters:**
+- `types` (optional): Comma-separated list of asset types to filter
+
+**Examples:**
+```bash
+# Get all components
+curl http://localhost:4567/api/components
+
+# Get specific components
+curl http://localhost:4567/api/components?types=key_numbers,remote_policy
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "components": {
+    "company_description": {
+      "file": "company-description.js",
+      "element": "company-description"
+    },
+    "key_numbers": {
+      "file": "key-numbers.js",
+      "element": "key-numbers"
+    }
+  },
+  "total": 8,
+  "filtered": 2
+}
+```
+
+### GET `/api/components/bundle`
+Returns combined JavaScript code for requested components as a single file.
+
+**Query Parameters:**
+- `types` (required): Comma-separated list of asset types to bundle
+- `include_base` (optional): Whether to include base dependencies (default: `true`)
+
+**Examples:**
+```bash
+# Get bundle with base dependencies
+curl "http://localhost:4567/api/components/bundle?types=key_numbers,remote_policy"
+
+# Get bundle without base dependencies
+curl "http://localhost:4567/api/components/bundle?types=key_numbers&include_base=false"
+```
+
+**Response:**
+Returns JavaScript code (content-type: `application/javascript`) containing:
+- Base dependencies (style-constants.js, form-helper.js, template-builder.js, base-component.js)
+- Requested component files
+- Import statements are commented out (bundled inline)
 
 ## 🧩 Web Components
 
