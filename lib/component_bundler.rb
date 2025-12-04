@@ -10,8 +10,8 @@ class ComponentBundler
     @registry = registry
   end
 
-  def bundle(types:, include_base: true)
-    files = collect_files(types, include_base)
+  def bundle(types:, include_base: true, include_main: true)
+    files = collect_files(types, include_base, include_main)
     build_bundle(files, types)
   end
 
@@ -23,11 +23,19 @@ class ComponentBundler
 
   private
 
-  def collect_files(types, include_base)
+  def collect_files(types, include_base, include_main)
     files = []
     files.concat(base_dependency_files) if include_base
     files.concat(component_files_for(types))
+    files << main_file if include_main && main_file
     files
+  end
+
+  def main_file
+    main_path = File.join(@public_folder, 'main.js')
+    return nil unless File.exist?(main_path)
+
+    { file: 'main.js', path: main_path }
   end
 
   def base_dependency_files

@@ -4,7 +4,12 @@
     {
       "label": "Start Server",
       "type": "shell",
-      "command": "source ~/.zshrc && bundle exec ruby server.rb",
+      "command": "bundle",
+      "args": [
+        "exec",
+        "ruby",
+        "server.rb"
+      ],
       "isBackground": true,
       "problemMatcher": {
         "pattern": {

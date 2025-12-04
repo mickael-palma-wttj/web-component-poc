@@ -7,11 +7,13 @@ A powerful web-based asset editor for managing company profiles with interactive
 - 🎨 **Web Components**: Custom elements for each asset type with full Shadow DOM encapsulation
 - ✏️ **Inline Editing**: Click "Edit" on any asset to modify content with live preview
 - 💾 **Persistent Storage**: Changes are saved back to `data.md` file
-- �️ **Download as Image**: Export any asset view as a high-quality PNG image
+- 🖼️ **Download as Image**: Export any asset view as a high-quality PNG image
 - 🗺️ **Interactive Maps**: Leaflet maps for office locations with address search
 - 📱 **Responsive Design**: Fully responsive UI that works on all screen sizes
 - 🚀 **Ruby Sinatra Server**: Lightweight server for serving and API requests
 - 🎯 **Live Preview**: Real-time preview while editing content
+- 📦 **Dynamic Component Loading**: Load only the components you need via bundle API
+- 🗜️ **Gzip Compression**: Automatic gzip compression for bundle responses
 
 ## 📋 Project Structure
 
@@ -20,12 +22,13 @@ web-component-poc/
 ├── data.md                          # Source data file (parsed and saved)
 ├── server.rb                        # Ruby Sinatra server
 ├── Gemfile                          # Ruby dependencies
+├── .rubocop.yml                     # RuboCop configuration
 ├── package.json                     # Node dependencies (optional)
 ├── lib/
-│   ├── asset_fetcher.rb             # Asset retrieval service
+│   ├── asset_fetcher.rb             # Asset retrieval service with custom exceptions
 │   ├── asset_parser.rb              # Markdown to JSON parser
 │   ├── asset_persister.rb           # Asset saving service
-│   ├── component_bundler.rb         # JS bundling service
+│   ├── component_bundler.rb         # JS bundling service with import stripping
 │   └── markdown_generator.rb        # JSON to Markdown generator
 ├── public/
 │   ├── index.html                   # Main HTML page
@@ -46,6 +49,11 @@ web-component-poc/
 │       ├── office-locations.js      # Office locations with maps
 │       ├── perks-benefits.js        # Perks and benefits component
 │       └── remote-policy.js         # Remote work policy component
+├── .devcontainer/
+│   ├── devcontainer.json            # Dev Container configuration
+│   └── Dockerfile                   # Container image definition
+├── .vscode/
+│   └── tasks.json                   # VS Code task definitions
 ├── README.md                        # This file
 └── CHANGELOG.md                     # Version history and updates
 ```
@@ -55,6 +63,63 @@ web-component-poc/
 - Ruby 3.0 or higher
 - Bundler gem
 - Modern web browser (Chrome, Firefox, Safari, Edge)
+
+## 🐳 Dev Container (Recommended)
+
+This project includes a Dev Container configuration for a consistent development environment using VS Code or GitHub Codespaces.
+
+### What's Included
+
+- **Ruby 3** - Pre-configured Ruby environment
+- **Node.js 18** - For any JavaScript tooling needs
+- **Ruby LSP Extension** - Automatically installed for code intelligence
+- **Port Forwarding** - Port 4567 automatically forwarded for the Sinatra server
+- **Auto Setup** - `bundle install` runs automatically on container creation
+
+### Using with VS Code
+
+1. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+2. Open the project folder in VS Code
+3. Click "Reopen in Container" when prompted (or use Command Palette: `Dev Containers: Reopen in Container`)
+4. Wait for the container to build and dependencies to install
+5. Start the server with `ruby server.rb`
+
+### Using with GitHub Codespaces
+
+1. Click the "Code" button on the repository
+2. Select "Codespaces" tab
+3. Click "Create codespace on main"
+4. The environment will be ready with all dependencies installed
+
+### Container Configuration
+
+The Dev Container is defined in `.devcontainer/`:
+
+- **Dockerfile**: Based on `mcr.microsoft.com/devcontainers/ruby:3` with Node.js 18 added
+- **devcontainer.json**: Configures extensions, port forwarding, and post-create commands
+
+## ⚙️ VS Code Tasks
+
+Pre-configured tasks are available in `.vscode/tasks.json` for common development workflows. Run them via **Terminal > Run Task** or use the keyboard shortcut `Cmd+Shift+B` (Mac) / `Ctrl+Shift+B` (Windows/Linux).
+
+### Available Tasks
+
+| Task | Description | Shortcut |
+|------|-------------|----------|
+| **Start Server** | Starts the Sinatra server with `bundle exec ruby server.rb` | Default build task (`Cmd+Shift+B`) |
+| **Open App** | Opens the browser to `http://localhost:4567` (depends on Start Server) | - |
+| **Install Dependencies** | Runs `bundle install` | - |
+| **Bundle Update** | Runs `bundle update` | - |
+| **Check Server Health** | Checks if server is responding with HTTP status | - |
+| **Test API - Get Assets** | Tests the `/api/assets` endpoint with curl | - |
+| **View data.md** | Displays the contents of the data file | - |
+| **Tail Server Logs** | Tails the `.server.log` file in real-time | - |
+
+### Running Tasks
+
+1. **Command Palette**: `Cmd+Shift+P` → "Tasks: Run Task" → Select task
+2. **Build Shortcut**: `Cmd+Shift+B` runs the default "Start Server" task
+3. **Terminal Menu**: Terminal → Run Task → Select task
 
 ## 📦 Installation
 
@@ -232,6 +297,7 @@ curl http://localhost:4567/api/components?types=key_numbers,remote_policy
 
 ### GET `/api/components/bundle`
 Returns combined JavaScript code for requested components as a single file.
+Supports gzip compression when client sends `Accept-Encoding: gzip` header.
 
 **Query Parameters:**
 - `types` (required): Comma-separated list of asset types to bundle
@@ -244,6 +310,9 @@ curl "http://localhost:4567/api/components/bundle?types=key_numbers,remote_polic
 
 # Get bundle without base dependencies
 curl "http://localhost:4567/api/components/bundle?types=key_numbers&include_base=false"
+
+# Get gzip compressed bundle
+curl -H "Accept-Encoding: gzip" "http://localhost:4567/api/components/bundle?types=key_numbers" | gunzip
 ```
 
 **Response:**
@@ -251,6 +320,7 @@ Returns JavaScript code (content-type: `application/javascript`) containing:
 - Base dependencies (style-constants.js, form-helper.js, template-builder.js, base-component.js)
 - Requested component files
 - Import statements are commented out (bundled inline)
+- Gzip encoded if client accepts it (Content-Encoding: gzip)
 
 ## 🧩 Web Components
 
@@ -338,6 +408,22 @@ const componentMap = {
 ```
 
 ## 🔧 Development
+
+### Code Quality
+
+This project uses RuboCop for Ruby code linting and style enforcement:
+
+```bash
+# Check for offenses
+rubocop
+
+# Auto-fix correctable offenses
+rubocop -A
+```
+
+Configuration is in `.rubocop.yml` with:
+- Ruby 3.3 target version
+- New cops enabled by default
 
 ### Code Structure
 

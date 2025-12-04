@@ -814,6 +814,42 @@ function attachEventListeners() {
 }
 
 /**
+ * Check if we're running in a bundled context
+ * When bundled, components are defined before main.js runs
+ * @returns {boolean}
+ */
+function isBundledContext() {
+    // Check if base component is already defined (bundled before main.js)
+    return customElements.get('company-description') !== undefined;
+}
+
+/**
+ * Build component map from already-defined custom elements
+ * Used when running in bundled context
+ * @returns {void}
+ */
+function buildComponentMapFromRegistry() {
+    // These mappings match the server's AppConfig.component_registry
+    const knownComponents = {
+        'company_description': 'company-description',
+        'their_story': 'their-story',
+        'key_numbers': 'key-numbers',
+        'funding_parser': 'funding-parser',
+        'leadership': 'leadership-component',
+        'office_locations': 'office-locations',
+        'perks_and_benefits': 'perks-benefits',
+        'remote_policy': 'remote-policy'
+    };
+
+    for (const [type, element] of Object.entries(knownComponents)) {
+        if (customElements.get(element)) {
+            COMPONENT_MAP[type] = element;
+            loadedComponents.add(type);
+        }
+    }
+}
+
+/**
  * Wait for all custom elements to be defined
  * Initializes app after all components are ready
  * @async
@@ -822,15 +858,20 @@ function attachEventListeners() {
  */
 async function initializeApp() {
     try {
-        // Load all components from server
-        await loadComponents();
+        if (isBundledContext()) {
+            // Running in bundle - components already loaded
+            buildComponentMapFromRegistry();
+        } else {
+            // Running standalone - fetch components from server
+            await loadComponents();
 
-        // Wait for all components to be registered
-        const componentNames = Object.values(COMPONENT_MAP);
-        if (componentNames.length > 0) {
-            await Promise.all(
-                componentNames.map(name => customElements.whenDefined(name))
-            );
+            // Wait for all components to be registered
+            const componentNames = Object.values(COMPONENT_MAP);
+            if (componentNames.length > 0) {
+                await Promise.all(
+                    componentNames.map(name => customElements.whenDefined(name))
+                );
+            }
         }
 
         // Attach event listeners

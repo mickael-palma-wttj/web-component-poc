@@ -3,11 +3,12 @@
 require 'sinatra'
 require 'json'
 require 'zlib'
-require_relative 'lib/asset_parser'
-require_relative 'lib/markdown_generator'
-require_relative 'lib/asset_fetcher'
-require_relative 'lib/asset_persister'
-require_relative 'lib/component_bundler'
+require 'zeitwerk'
+
+# Configure Zeitwerk autoloader
+loader = Zeitwerk::Loader.new
+loader.push_dir(File.expand_path('lib', __dir__))
+loader.setup
 
 set :port, ENV['PORT'] || 4567
 set :bind, '0.0.0.0'
@@ -193,12 +194,12 @@ end
 
 get '/api/components/bundle' do
   with_error_handling do
-    types = parse_types_param
-    halt 400, json_response(success: false, data: { error: 'Missing required parameter: types' }) unless types
+    types = parse_types_param || AppConfig.component_registry.keys
 
     include_base = params[:include_base] != 'false'
+    include_main = params[:include_main] != 'false'
     bundler = ComponentBundler.new(public_folder: settings.public_folder)
-    bundle_content = bundler.bundle(types: types, include_base: include_base)
+    bundle_content = bundler.bundle(types: types, include_base: include_base, include_main: include_main)
 
     content_type 'application/javascript'
     headers AppConfig.no_cache_headers
